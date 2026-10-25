@@ -1,122 +1,211 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState, useEffect, useMemo } from 'react';
+import type {
+  NavigationTab,
+  TimeRange,
+  LogEntry,
+  UserPreferences,
+} from './types/log';
+import {
+  getInitialLogs,
+  generateMockLog,
+  calculateMetrics,
+  MOCK_AGENTS,
+  MOCK_SERVICES,
+} from './services/mockData';
+import { Sidebar } from './components/layout/Sidebar';
+import { Header } from './components/layout/Header';
+import { OverviewPage } from './pages/OverviewPage';
+import { LiveLogsPage } from './pages/LiveLogsPage';
+import { AgentsPage } from './pages/AgentsPage';
+import { MetricsPage } from './pages/MetricsPage';
+import { SettingsPage } from './pages/SettingsPage';
+import './App.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+const DEFAULT_PREFERENCES: UserPreferences = {
+  refreshRate: 2,
+  maxLogsInMemory: 500,
+  density: 'comfortable',
+  autoExpandErrors: false,
+  theme: 'dark',
+  backendUrl: 'http://localhost:8000',
+};
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+function loadStoredPreferences(): UserPreferences {
+  try {
+    const raw = localStorage.getItem('loggate_preferences');
+    if (raw) {
+      return { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) };
+    }
+  } catch {
+    // ignore parse error and return default
+  }
+  return DEFAULT_PREFERENCES;
 }
 
-export default App
+export function App() {
+  const [activeTab, setActiveTab] = useState<NavigationTab>('overview');
+  const [timeRange, setTimeRange] = useState<TimeRange>('1h');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isStreaming, setIsStreaming] = useState<boolean>(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
+  // User Preferences
+  const [preferences, setPreferences] = useState<UserPreferences>(loadStoredPreferences);
+
+  // In-memory Logs
+  const [logs, setLogs] = useState<LogEntry[]>(() => getInitialLogs(45));
+
+  // Sync theme attribute with document
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', preferences.theme);
+  }, [preferences.theme]);
+
+  // Persist preferences to localStorage
+  const updatePreferences = (updated: Partial<UserPreferences>) => {
+    setPreferences((prev) => {
+      const next = { ...prev, ...updated };
+      localStorage.setItem('loggate_preferences', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const resetPreferences = () => {
+    localStorage.removeItem('loggate_preferences');
+    setPreferences(DEFAULT_PREFERENCES);
+  };
+
+  // Toggle Dark / Light Theme
+  const toggleTheme = () => {
+    updatePreferences({ theme: preferences.theme === 'dark' ? 'light' : 'dark' });
+  };
+
+  // Simulated live ingestion stream
+  useEffect(() => {
+    if (!isStreaming) return;
+
+    const interval = setInterval(() => {
+      const newEntry = generateMockLog();
+      setLogs((prevLogs) => {
+        const next = [newEntry, ...prevLogs];
+        // Enforce max buffer limit from preferences
+        if (next.length > preferences.maxLogsInMemory) {
+          return next.slice(0, preferences.maxLogsInMemory);
+        }
+        return next;
+      });
+    }, preferences.refreshRate * 1000);
+
+    return () => clearInterval(interval);
+  }, [isStreaming, preferences.refreshRate, preferences.maxLogsInMemory]);
+
+  // Derived metrics
+  const metrics = useMemo(() => calculateMetrics(logs), [logs]);
+
+  // Manual inject test log
+  const handleInjectMockLog = () => {
+    const manualLog = generateMockLog();
+    setLogs((prev) => [manualLog, ...prev]);
+  };
+
+  // Clear logs buffer
+  const handleClearLogs = () => {
+    setLogs([]);
+  };
+
+  // Responsive page renderer
+  const renderCurrentView = () => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <OverviewPage
+            metrics={metrics}
+            logs={logs}
+            agents={MOCK_AGENTS}
+            onNavigateToLogs={() => setActiveTab('logs')}
+            onNavigateToAgents={() => setActiveTab('agents')}
+            onNavigateToSettings={() => setActiveTab('settings')}
+          />
+        );
+      case 'logs':
+        return (
+          <LiveLogsPage
+            logs={logs}
+            availableServices={MOCK_SERVICES}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            isStreaming={isStreaming}
+            onToggleStreaming={() => setIsStreaming((prev) => !prev)}
+            onClearLogs={handleClearLogs}
+            onInjectMockLog={handleInjectMockLog}
+            density={preferences.density}
+            autoExpandErrors={preferences.autoExpandErrors}
+          />
+        );
+      case 'agents':
+        return (
+          <AgentsPage
+            agents={MOCK_AGENTS}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        );
+      case 'metrics':
+        return <MetricsPage metrics={metrics} />;
+      case 'settings':
+        return (
+          <SettingsPage
+            preferences={preferences}
+            onUpdatePreferences={updatePreferences}
+            onResetPreferences={resetPreferences}
+          />
+        );
+    }
+  };
+
+  return (
+    <div className="dashboard-layout">
+      {/* Mobile Backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="mobile-backdrop"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Left Sidebar */}
+      <Sidebar
+        activeTab={activeTab}
+        onSelectTab={(tab) => {
+          setActiveTab(tab);
+          setMobileMenuOpen(false);
+        }}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed((prev) => !prev)}
+        logCount={logs.length}
+        agentCount={MOCK_AGENTS.length}
+      />
+
+      {/* Main Content Area */}
+      <div className="dashboard-main">
+        <Header
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          timeRange={timeRange}
+          onTimeRangeChange={setTimeRange}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          isStreaming={isStreaming}
+          onToggleStreaming={() => setIsStreaming((prev) => !prev)}
+          theme={preferences.theme}
+          onToggleTheme={toggleTheme}
+          onMobileMenuClick={() => setMobileMenuOpen(true)}
+        />
+
+        <main className="dashboard-content">{renderCurrentView()}</main>
+      </div>
+    </div>
+  );
+}
+
+export default App;
