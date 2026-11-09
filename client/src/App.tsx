@@ -1,122 +1,98 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useState } from 'react';
+import { ThemeProvider } from './context/ThemeContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { LogGateProvider } from './context/LogGateContext';
+import { WelcomePage } from './components/welcome/WelcomePage';
+import { SignInPage } from './components/auth/SignInPage';
+import { Navbar } from './components/layout/Navbar';
+import { Sidebar } from './components/layout/Sidebar';
+import type { ActiveTab } from './components/layout/Sidebar';
+import { SystemAlertBar } from './components/layout/SystemAlertBar';
+import { IncidentList } from './components/incidents/IncidentList';
+import { SensitivityTuner } from './components/tuning/SensitivityTuner';
+import { PatternBrowser } from './components/patterns/PatternBrowser';
+import { CostSavings } from './components/analytics/CostSavings';
+import { TriageSandbox } from './components/sandbox/TriageSandbox';
+import { FleetConnect } from './components/fleet/FleetConnect';
+import { SlackSettings } from './components/settings/SlackSettings';
 
-function App() {
-  const [count, setCount] = useState(0)
+type ViewMode = 'welcome' | 'signin' | 'dashboard';
 
+function AppContent() {
+  const { login } = useAuth();
+  const [viewMode, setViewMode] = useState<ViewMode>('welcome');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('incidents');
+
+  // Step 1: Welcome / Landing Page
+  if (viewMode === 'welcome') {
+    return (
+      <WelcomePage
+        onGetStarted={() => setViewMode('signin')}
+        onExploreDemo={() => {
+          login('admin@loggate.io', 'Platform Admin', 'Production Infrastructure');
+          setViewMode('dashboard');
+        }}
+      />
+    );
+  }
+
+  // Step 2: Dedicated Sign In Page
+  if (viewMode === 'signin') {
+    return (
+      <SignInPage
+        onBackToWelcome={() => setViewMode('welcome')}
+        onSuccess={() => setViewMode('dashboard')}
+      />
+    );
+  }
+
+  // Step 3: Full Dashboard Console
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app-container">
+      {/* Sidebar Navigation */}
+      <Sidebar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        onGoHome={() => setViewMode('welcome')}
+      />
 
-      <div className="ticks"></div>
+      {/* Main Workspace */}
+      <div className="main-content">
+        <Navbar
+          activeTab={activeTab}
+          onOpenLogin={() => setViewMode('signin')}
+          onGoHome={() => setViewMode('welcome')}
+        />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {/* Scrollable Content Container (Navbar and Sidebar stay 100% fixed) */}
+        <div className="content-scroll-area">
+          {/* FR-26 Persistent Resilience Alert Bar */}
+          <SystemAlertBar />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+          {/* Dynamic Page Views */}
+          <main className="page-body">
+            {activeTab === 'incidents' && <IncidentList />}
+            {activeTab === 'tuning' && <SensitivityTuner />}
+            {activeTab === 'patterns' && <PatternBrowser />}
+            {activeTab === 'analytics' && <CostSavings />}
+            {activeTab === 'sandbox' && <TriageSandbox />}
+            {activeTab === 'fleet' && <FleetConnect />}
+            {activeTab === 'settings' && <SlackSettings />}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AuthProvider>
+        <LogGateProvider>
+          <AppContent />
+        </LogGateProvider>
+      </AuthProvider>
+    </ThemeProvider>
+  );
+}
