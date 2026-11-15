@@ -2,10 +2,12 @@ from collections.abc import ByteString
 from fastapi import FastAPI
 from pydantic import BaseModel
 from server.api.authapi import auth_router
+from server.api.tokenapi import token_router
 
 app = FastAPI(title="LogGate Server API")
 
 app.include_router(auth_router, prefix="/api/v1/auth")
+app.include_router(token_router, prefix="/api/v1/tokens")
 
 class ReducedRecord(BaseModel):
     pattern: str
