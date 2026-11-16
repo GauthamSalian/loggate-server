@@ -19,7 +19,7 @@ supabase: Client = create_client(
     os.getenv("SUPABASE_PUBLISHABLE_KEY")
 )
 
-def create_key(user_id: str):
+def create_key(project_id: str):
     # 32 random bytes = 64 hex characters
     key = PREFIX + token_hex(32)
     hashed_key = hashlib.sha256(key.encode("utf-8")).hexdigest()
@@ -29,7 +29,7 @@ def create_key(user_id: str):
         res = (
             supabase.table("api_keys")
             .insert({
-                "user_id": user_id,
+                "project_id": project_id,
                 "key_prefix": key_prefix,
                 "key_hash": hashed_key,
                 "is_active": True
@@ -43,7 +43,6 @@ def create_key(user_id: str):
                 "message": "API key created successfully",
                 "api_key": key,  # Raw secret key shown ONCE to user
                 "key_prefix": key_prefix,
-                "data": res.data[0]
             }
         return {
             "status": "error",
@@ -68,7 +67,7 @@ def verify_key(api_key: str):
     try:
         res = (
             supabase.table("api_keys")
-            .select("is_active", "user_id", "key_id")
+            .select("is_active", "project_id", "key_id")
             .eq("key_hash", incoming_hash)
             .limit(1)
             .execute()
@@ -85,17 +84,35 @@ def verify_key(api_key: str):
     except Exception:
         return None
 
-def revoke_key(user_id: str, key_id: str):
+def revoke_key(project_id: str, key_id: str):
     try:
         res = (
             supabase.table("api_keys")
             .update({"is_active": False})
             .eq("key_id", key_id)
-            .eq("user_id", user_id)
+            .eq("project_id", project_id)
             .execute()
         )
         if res.data and len(res.data) > 0:
             return {"status": "success", "message": "API key revoked successfully"}
         return {"status": "error", "message": "API key not found or already revoked"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+def list_keys(project_id: str):
+    try:
+        res = (
+            supabase.table("api_keys")
+            .select("key_id", "key_prefix", "is_active", "created_at", "last_used_at")
+            .eq("project_id", project_id)
+            .execute()
+        )
+        return {
+            "status": "success",
+            "message": "API keys listed successfully",
+            "data": res.data or []
+        }
+    except APIError as e:
+        return {"status": "error", "message": getattr(e, "message", str(e))}
     except Exception as e:
         return {"status": "error", "message": str(e)}
