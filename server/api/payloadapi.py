@@ -43,8 +43,14 @@ async def push_payload(
     project: dict = Depends(get_verified_project),
     http_client: httpx.AsyncClient = Depends(get_http_client),
 ):
-    project_id = project["project_id"]  # Fixed: string key access
-    machine = await process_payload(payload=payload, project_id=project_id, http_client=http_client)
+    project_id = project["project_id"]
+    key_id = project.get("key_id")
+    machine = await process_payload(
+        payload=payload,
+        project_id=project_id,
+        key_id=key_id,
+        http_client=http_client
+    )
     return {
         "status": "success",
         "message": "Payload processed successfully",
