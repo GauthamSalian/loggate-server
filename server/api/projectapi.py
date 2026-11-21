@@ -4,7 +4,8 @@ from server.services.projectservice import (
     create_project,
     add_member,
     remove_member,
-    list_user_projects
+    list_user_projects,
+    set_channel
 )
 from server.api.authapi import get_current_user
 
@@ -21,6 +22,10 @@ class AddMemberRequest(BaseModel):
 class RemoveMemberRequest(BaseModel):
     project_id: str
     user_id: str
+
+class SetSlackRequest(BaseModel):
+    project_id: str
+    slack_webhook_url: str
 
 @project_router.post("/create", status_code=status.HTTP_201_CREATED)
 async def create_new_project(
@@ -84,4 +89,23 @@ async def remove_project_member(
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=result.get("message", "Failed to remove member")
+    )
+
+
+@project_router.post("/set-slack-channel", status_code=status.HTTP_200_OK)
+async def set_slack_channel(
+    payload: SetSlackRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    requesting_user_id = str(current_user.get("user_id"))
+    result = set_channel(
+        project_id=payload.project_id,
+        slack_webhook_url=payload.slack_webhook_url,
+        requesting_user_id=requesting_user_id
+    )
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=result.get("message", "Failed to set slack channel")
     )

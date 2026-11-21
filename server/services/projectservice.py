@@ -117,3 +117,19 @@ def list_user_projects(user_id: str):
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+
+def set_channel(project_id:str, slack_webhook_url:str, requesting_user_id: str):
+    if not verify_project_access(user_id=requesting_user_id, project_id=project_id):
+        return {"status": "error", "message": "You do not have access to manage this project"}
+    res = (
+        supabase.table("projects")
+        .update({"slack_webhook_url": slack_webhook_url})
+        .eq("project_id", project_id)
+        .execute()
+    )
+    return {
+        "status": "success",
+        "message": "Slack channel set successfully",
+        "data": res.data[0] if res.data else None
+    }
