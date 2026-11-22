@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from pydantic import BaseModel
+from typing import Optional
+import httpx
 from server.services.projectservice import (
     create_project,
     add_member,
@@ -10,9 +12,13 @@ from server.services.projectservice import (
     display_logs,
     get_connected_machine,
     get_project_members,
-    delete_project
+    delete_project,
+    test_project_slack
 )
 from server.api.authapi import get_current_user
+
+def get_http_client(request: Request) -> httpx.AsyncClient:
+    return request.app.state.http_client
 
 project_router = APIRouter(tags=["Project Management"])
 
@@ -132,23 +138,55 @@ async def get_project_metrics(
         detail=result.get("message", "Failed to fetch project metrics")
     )
 
+@project_router.get("/{project_id}/logs", status_code=status.HTTP_200_OK)
 @project_router.get("/{project_id}/display_logs/{page_number}", status_code=status.HTTP_200_OK)
 async def get_project_logs(
     project_id: str,
-    page_number: int,
+    page_number: int = 1,
+    page_size: int = 30,
+    service: Optional[str] = None,
+    environment: Optional[str] = None,
+    severity_label: Optional[str] = None,
+    alerted_slack: Optional[bool] = None,
+    search: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     requesting_user_id = str(current_user.get("user_id"))
     result = display_logs(
         project_id=project_id,
+        requesting_user_id=requesting_user_id,
         page_number=page_number,
-        requesting_user_id=requesting_user_id
+        page_size=page_size,
+        service=service,
+        environment=environment,
+        severity_label=severity_label,
+        alerted_slack=alerted_slack,
+        search=search,
     )
     if result.get("status") == "success":
         return result
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=result.get("message", "Failed to fetch project logs")
+    )
+
+@project_router.post("/{project_id}/test-slack", status_code=status.HTTP_200_OK)
+async def send_project_test_slack(
+    project_id: str,
+    current_user: dict = Depends(get_current_user),
+    http_client: httpx.AsyncClient = Depends(get_http_client)
+):
+    requesting_user_id = str(current_user.get("user_id"))
+    result = await test_project_slack(
+        project_id=project_id,
+        requesting_user_id=requesting_user_id,
+        http_client=http_client
+    )
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=result.get("message", "Failed to send Slack test alert")
     )
 
 @project_router.get("/{project_id}/display_machines", status_code=status.HTTP_200_OK)

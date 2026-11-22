@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 from postgrest.exceptions import APIError
+from typing import Optional
+import httpx
 
 env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
@@ -156,7 +158,17 @@ def list_project_metrics(project_id:str, requesting_user_id:str):
             "message": str(e)
         }
 
-def display_logs(project_id: str, requesting_user_id: str, page_number: int):
+def display_logs(
+    project_id: str,
+    requesting_user_id: str,
+    page_number: int = 1,
+    page_size: int = PAGE_SIZE,
+    service: Optional[str] = None,
+    environment: Optional[str] = None,
+    severity_label: Optional[str] = None,
+    alerted_slack: Optional[bool] = None,
+    search: Optional[str] = None
+):
     if not verify_project_access(user_id=requesting_user_id, project_id=project_id):
         return {
             "status": "error",
@@ -164,12 +176,29 @@ def display_logs(project_id: str, requesting_user_id: str, page_number: int):
         }
     try:
         page_number = max(1, page_number)
-        start = (page_number - 1) * PAGE_SIZE
-        end = start + PAGE_SIZE - 1
-        res = (
+        page_size = min(max(1, page_size), 100)
+        start = (page_number - 1) * page_size
+        end = start + page_size - 1
+
+        query = (
             supabase.table("logs")
             .select("*", count="exact")
             .eq("project_id", project_id)
+        )
+
+        if service:
+            query = query.eq("service", service)
+        if environment:
+            query = query.eq("environment", environment)
+        if severity_label:
+            query = query.eq("severity_label", severity_label)
+        if alerted_slack is not None:
+            query = query.eq("alerted_slack", alerted_slack)
+        if search:
+            query = query.ilike("pattern", f"%{search}%")
+
+        res = (
+            query
             .order("created_at", desc=True)
             .range(start, end)
             .execute()
@@ -177,13 +206,68 @@ def display_logs(project_id: str, requesting_user_id: str, page_number: int):
         return {
             "status": "success",
             "data": res.data or [],
-            "count": res.count or 0
+            "count": res.count or 0,
+            "page": page_number,
+            "page_size": page_size
         }
     except Exception as e:
         return {
             "status": "error",
             "message": str(e)
         }
+
+async def test_project_slack(project_id: str, requesting_user_id: str, http_client: httpx.AsyncClient):
+    if not verify_project_access(user_id=requesting_user_id, project_id=project_id):
+        return {"status": "error", "message": "You do not have access to this project"}
+
+    try:
+        res = (
+            supabase.table("projects")
+            .select("slack_webhook_url, name")
+            .eq("project_id", project_id)
+            .limit(1)
+            .execute()
+        )
+        if not res.data or not res.data[0].get("slack_webhook_url"):
+            return {
+                "status": "error",
+                "message": "No Slack webhook configured for this project"
+            }
+
+        webhook_url = res.data[0]["slack_webhook_url"]
+        project_name = res.data[0].get("name", "LogGate Project")
+
+        payload = {
+            "text": f"[LogGate] Test alert for project *{project_name}*",
+            "attachments": [
+                {
+                    "color": "#10B981",
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": (
+                                    f"*LogGate Slack Integration Test*\n"
+                                    f"Successfully connected to project *{project_name}* (`{project_id}`). "
+                                    f"Alert notifications will be posted here."
+                                ),
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+
+        resp = await http_client.post(webhook_url, json=payload)
+        if resp.status_code == 200:
+            return {"status": "success", "message": "Slack test alert sent successfully"}
+        return {
+            "status": "error",
+            "message": f"Slack returned status {resp.status_code}: {resp.text}"
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 def get_connected_machine(project_id: str, requesting_user_id: str):
     if not verify_project_access(user_id=requesting_user_id, project_id=project_id):

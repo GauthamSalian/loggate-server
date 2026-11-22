@@ -115,6 +115,7 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
         )
         score = decision.answers[0].score
         if score >= 1.8:
+            severity_label = "critical"
             error_count += 1
             raw_samples = getattr(record, "sample", [])
             if isinstance(raw_samples, list):
@@ -142,10 +143,12 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
                 sample=sample_str,
                 line_count=getattr(record, "line_count", getattr(record, "count", 1)),
                 severity_score=score,
+                severity_label=severity_label,
                 alerted_slack=True,
                 key_id=key_id,
             )
-        elif score > 1.2:
+        elif score >= 1.2:
+            severity_label = "warning"
             raw_samples = getattr(record, "sample", [])
             if isinstance(raw_samples, list):
                 sample_str = "\n".join(str(s).strip() for s in raw_samples[:3] if s)
@@ -159,6 +162,8 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
                 sample=sample_str,
                 line_count=getattr(record, "line_count", getattr(record, "count", 1)),
                 severity_score=score,
+                severity_label=severity_label,
+                alerted_slack=False,
                 key_id=key_id,
             )
         else:
@@ -218,7 +223,6 @@ async def send_slack_alert(
         ],
     }
     try:
-        # Reuses the existing pooled connection — zero TLS handshake overhead
         resp = await http_client.post(webhook_url, json=payload)
         return resp.status_code == 200
     except Exception as e:
@@ -243,10 +247,14 @@ def save_log_pattern(project_id: str,
     sample: str,
     line_count: int,
     severity_score: float,
+    severity_label: str = None,
     alerted_slack: bool = False,
     key_id: str = None,
     ):
     try:
+        resolved_label = severity_label or (
+            "critical" if severity_score >= 1.8 else "warning" if severity_score >= 1.2 else "benign"
+        )
         log_entry = {
             "project_id": project_id,
             "machine_id": machine["machine_id"],
@@ -257,6 +265,7 @@ def save_log_pattern(project_id: str,
             "sample": sample,
             "line_count": line_count,
             "severity_score": severity_score,
+            "severity_label": resolved_label,
             "alerted_slack": alerted_slack,
             "window_start": to_iso_timestamp(getattr(payload, "window_start", None)),
             "window_end": to_iso_timestamp(getattr(payload, "window_end", None)),
