@@ -93,9 +93,13 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
     records = getattr(payload, "records", [])
     error_count = 0
     for record in records:
+        raw_samples = getattr(record, "sample_lines", None) or getattr(record, "sample", None) or []
+        line_count = getattr(record, "raw_line_count", None) or getattr(record, "line_count", None) or 1
+        pattern = getattr(record, "pattern", getattr(record, "message", ""))
+
         decision = client.decisions.create(
-            model = "gpt-6-luna",
-            input = f"pattern: {record.pattern}, environment: {payload.environment}, occurrence_count: {record.line_count}",
+            model="gpt-6-luna",
+            input=f"pattern: {pattern}, environment: {payload.environment}, occurrence_count: {line_count}",
             questions=[
                 {
                     "type": "score",
@@ -117,7 +121,6 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
         if score >= 1.8:
             severity_label = "critical"
             error_count += 1
-            raw_samples = getattr(record, "sample", [])
             if isinstance(raw_samples, list):
                 sample_str = "\n".join(str(s).strip() for s in raw_samples[:3] if s)
             else:
@@ -130,18 +133,18 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
                 project_name=project_name,
                 service=payload.service,
                 environment=payload.environment,
-                pattern=getattr(record, "pattern", getattr(record, "message", "")),
+                pattern=pattern,
                 sample=sample_str,
-                occurrence_count=getattr(record, "line_count", getattr(record, "count", 1)),
+                occurrence_count=line_count,
                 severity_score=score,
             )
             save_log_pattern(
                 project_id=project_id,
                 machine=machine,
                 payload=payload,
-                pattern=getattr(record, "pattern", getattr(record, "message", "")),
+                pattern=pattern,
                 sample=sample_str,
-                line_count=getattr(record, "line_count", getattr(record, "count", 1)),
+                line_count=line_count,
                 severity_score=score,
                 severity_label=severity_label,
                 alerted_slack=True,
@@ -149,7 +152,6 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
             )
         elif score >= 1.2:
             severity_label = "warning"
-            raw_samples = getattr(record, "sample", [])
             if isinstance(raw_samples, list):
                 sample_str = "\n".join(str(s).strip() for s in raw_samples[:3] if s)
             else:
@@ -158,9 +160,9 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
                 project_id=project_id,
                 machine=machine,
                 payload=payload,
-                pattern=getattr(record, "pattern", getattr(record, "message", "")),
+                pattern=pattern,
                 sample=sample_str,
-                line_count=getattr(record, "line_count", getattr(record, "count", 1)),
+                line_count=line_count,
                 severity_score=score,
                 severity_label=severity_label,
                 alerted_slack=False,
@@ -169,8 +171,8 @@ async def process_payload(payload, project_id: str, http_client: httpx.AsyncClie
         else:
             pass
 
-    total_bytes = sum(getattr(r, "total_bytes_count", 0) for r in records)
-    total_lines = sum(getattr(r, "line_count", 0) for r in records)
+    total_bytes = sum(getattr(r, "bytes_represented", None) or getattr(r, "total_bytes_count", 0) for r in records)
+    total_lines = sum(getattr(r, "raw_line_count", None) or getattr(r, "line_count", 0) for r in records)
 
     update_metrics(
         project_id=project_id,

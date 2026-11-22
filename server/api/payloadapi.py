@@ -1,7 +1,7 @@
 from fastapi.security import APIKeyHeader
 from fastapi import APIRouter, Security, Depends, HTTPException, Request
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, Field
+from typing import List, Optional
 from fastapi.responses import JSONResponse
 from fastapi import status
 from server.services.tokenservice import verify_key
@@ -10,9 +10,15 @@ import httpx
 
 class Record(BaseModel):
     pattern: str
-    sample: List[str]
-    line_count: int
-    total_bytes_count: int
+    sample_lines: Optional[List[str]] = None
+    sample: Optional[List[str]] = None
+    raw_line_count: Optional[int] = None
+    line_count: Optional[int] = None
+    bytes_represented: Optional[int] = None
+    total_bytes_count: Optional[int] = None
+
+    class Config:
+        populate_by_name = True
 
 class LogPayload(BaseModel):
     service: str
