@@ -1,6 +1,8 @@
 from collections.abc import ByteString
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse, PlainTextResponse
 from pydantic import BaseModel
+from pathlib import Path
 from server.api.authapi import auth_router
 from server.api.tokenapi import token_router
 from server.api.projectapi import project_router
@@ -33,6 +35,67 @@ def health_check():
         "status": "ok",
         "service": "loggate-server"
     }
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
+
+@app.get("/install.sh", response_class=PlainTextResponse, tags=["Agent Distribution"])
+@app.get("/api/v1/install.sh", response_class=PlainTextResponse, tags=["Agent Distribution"])
+def get_install_script():
+    script_path = STATIC_DIR / "install.sh"
+    if not script_path.exists():
+        raise HTTPException(status_code=404, detail="install.sh not found")
+    return script_path.read_text(encoding="utf-8")
+
+@app.get("/install.ps1", response_class=PlainTextResponse, tags=["Agent Distribution"])
+@app.get("/api/v1/install.ps1", response_class=PlainTextResponse, tags=["Agent Distribution"])
+def get_windows_install_script():
+    script_path = STATIC_DIR / "install.ps1"
+    if not script_path.exists():
+        raise HTTPException(status_code=404, detail="install.ps1 not found")
+    return script_path.read_text(encoding="utf-8")
+
+@app.get("/api/v1/agent/releases", tags=["Agent Distribution"])
+def list_available_releases():
+    bin_dir = STATIC_DIR / "bin"
+    releases = []
+    if bin_dir.exists():
+        for file in bin_dir.iterdir():
+            if file.is_file() and not file.name.startswith("."):
+                platform_id = file.name.replace("loggate-agent-", "")
+                if platform_id.endswith(".exe"):
+                    platform_id = platform_id[:-4]
+                releases.append({
+                    "filename": file.name,
+                    "platform": platform_id,
+                    "size_bytes": file.stat().st_size,
+                    "download_url": f"/api/v1/agent/download/{platform_id}"
+                })
+    return {
+        "status": "success",
+        "releases": releases
+    }
+
+@app.get("/api/v1/agent/download/{platform}", tags=["Agent Distribution"])
+def download_agent_binary(platform: str):
+    bin_dir = STATIC_DIR / "bin"
+    target_file = bin_dir / f"loggate-agent-{platform}"
+    if not target_file.exists():
+        target_file_exe = bin_dir / f"loggate-agent-{platform}.exe"
+        if target_file_exe.exists():
+            target_file = target_file_exe
+        else:
+            available = [f.name for f in bin_dir.glob("loggate-agent-*")] if bin_dir.exists() else []
+            raise HTTPException(
+                status_code=404,
+                detail=f"Agent binary for platform '{platform}' not found. Available: {available}"
+            )
+
+    filename = "loggate-agent.exe" if target_file.suffix == ".exe" else "loggate-agent"
+    return FileResponse(
+        path=target_file,
+        filename=filename,
+        media_type="application/octet-stream"
+    )
 
 class ReducedRecord(BaseModel):
     pattern: str
