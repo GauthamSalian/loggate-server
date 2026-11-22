@@ -51,8 +51,11 @@ async def push_payload(
         key_id=key_id,
         http_client=http_client
     )
+    records_count = len(getattr(payload, "records", []))
     return {
         "status": "success",
         "message": "Payload processed successfully",
+        "records_accepted": records_count,
+        "records_dropped": 0,
         "machine": machine,
     }
