@@ -116,3 +116,20 @@ def list_keys(project_id: str):
         return {"status": "error", "message": getattr(e, "message", str(e))}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+def list_key_metrics(key_id: str, project_id: str = None):
+    try:
+        query = (
+            supabase.table("daily_metrics")
+            .select("metric_date", "bytes_ingested", "raw_lines_count", "error_count")
+            .eq("key_id", key_id)
+        )
+        if project_id:
+            query = query.eq("project_id", project_id)
+        res = query.execute()
+        return {
+            "status": "success",
+            "data": res.data or []
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}

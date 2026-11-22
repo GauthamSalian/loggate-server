@@ -5,7 +5,8 @@ from server.services.projectservice import (
     add_member,
     remove_member,
     list_user_projects,
-    set_channel
+    set_channel,
+    list_project_metrics
 )
 from server.api.authapi import get_current_user
 
@@ -108,4 +109,21 @@ async def set_slack_channel(
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=result.get("message", "Failed to set slack channel")
+    )
+
+@project_router.get("/metrics/{project_id}", status_code=status.HTTP_200_OK)
+async def get_project_metrics(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    requesting_user_id = str(current_user.get("user_id"))
+    result = list_project_metrics(
+        project_id=project_id,
+        requesting_user_id=requesting_user_id
+    )
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=result.get("message", "Failed to fetch project metrics")
     )

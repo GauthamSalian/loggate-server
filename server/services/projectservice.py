@@ -107,7 +107,7 @@ def list_user_projects(user_id: str):
     try:
         res = (
             supabase.table("project_members")
-            .select("project_id, role, projects(id, name, created_at)")
+            .select("project_id, role, projects(project_id, name, created_at)")
             .eq("user_id", user_id)
             .execute()
         )
@@ -133,3 +133,23 @@ def set_channel(project_id:str, slack_webhook_url:str, requesting_user_id: str):
         "message": "Slack channel set successfully",
         "data": res.data[0] if res.data else None
     }
+
+def list_project_metrics(project_id:str, requesting_user_id:str):
+    if not verify_project_access(user_id=requesting_user_id, project_id=project_id):
+        return {"status": "error", "message": "You do not have access to this project"}
+    try:
+        res = (
+            supabase.table("daily_metrics")
+            .select("metric_date", "bytes_ingested", "raw_lines_count", "error_count")
+            .eq("project_id", project_id)
+            .execute()
+        )
+        return {
+            "status": "success",
+            "data": res.data or []
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
