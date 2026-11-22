@@ -8,6 +8,8 @@ env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(dotenv_path=env_path)
 load_dotenv()
 
+PAGE_SIZE = 30
+
 supabase: Client = create_client(
     os.getenv("SUPABASE_URL"),
     os.getenv("SUPABASE_PUBLISHABLE_KEY")
@@ -147,6 +149,118 @@ def list_project_metrics(project_id:str, requesting_user_id:str):
         return {
             "status": "success",
             "data": res.data or []
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def display_logs(project_id: str, requesting_user_id: str, page_number: int):
+    if not verify_project_access(user_id=requesting_user_id, project_id=project_id):
+        return {
+            "status": "error",
+            "message": "You do not have access to this project"
+        }
+    try:
+        page_number = max(1, page_number)
+        start = (page_number - 1) * PAGE_SIZE
+        end = start + PAGE_SIZE - 1
+        res = (
+            supabase.table("logs")
+            .select("*", count="exact")
+            .eq("project_id", project_id)
+            .order("created_at", desc=True)
+            .range(start, end)
+            .execute()
+        )
+        return {
+            "status": "success",
+            "data": res.data or [],
+            "count": res.count or 0
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def get_connected_machine(project_id: str, requesting_user_id: str):
+    if not verify_project_access(user_id=requesting_user_id, project_id=project_id):
+        return {
+            "status": "error",
+            "message": "You do not have access to this project"
+        }
+    try:
+        res = (
+            supabase.table("machines")
+            .select("machine_id, name, service, environment, last_seen_at")
+            .eq("project_id", project_id)
+            .execute()
+        )
+        return {
+            "status": "success",
+            "data": res.data or []
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def get_project_members(project_id: str, requesting_user_id: str):
+    if not verify_project_access(user_id=requesting_user_id, project_id=project_id):
+        return {
+            "status": "error",
+            "message": "You do not have access to this project"
+        }
+    try:
+        res = (
+            supabase.table("project_members")
+            .select("project_id, user_id, role")
+            .eq("project_id", project_id)
+            .execute()
+        )
+        return {
+            "status": "success",
+            "data": res.data or []
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": str(e)
+        }
+
+def delete_project(project_id: str, requesting_user_id: str):
+    try:
+        member = (
+            supabase.table("project_members")
+            .select("role")
+            .eq("project_id", project_id)
+            .eq("user_id", requesting_user_id)
+            .limit(1)
+            .execute()
+        )
+        if not member.data:
+            return {
+                "status": "error",
+                "message": "You do not have access to this project"
+            }
+        if member.data[0].get("role") != "owner":
+            return {
+                "status": "error",
+                "message": "Only project owners can delete the project"
+            }
+
+        res = (
+            supabase.table("projects")
+            .delete()
+            .eq("project_id", project_id)
+            .execute()
+        )
+        return {
+            "status": "success",
+            "message": "Project deleted successfully"
         }
     except Exception as e:
         return {

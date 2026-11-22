@@ -6,7 +6,11 @@ from server.services.projectservice import (
     remove_member,
     list_user_projects,
     set_channel,
-    list_project_metrics
+    list_project_metrics, 
+    display_logs,
+    get_connected_machine,
+    get_project_members,
+    delete_project
 )
 from server.api.authapi import get_current_user
 
@@ -126,4 +130,74 @@ async def get_project_metrics(
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail=result.get("message", "Failed to fetch project metrics")
+    )
+
+@project_router.get("/{project_id}/display_logs/{page_number}", status_code=status.HTTP_200_OK)
+async def get_project_logs(
+    project_id: str,
+    page_number: int,
+    current_user: dict = Depends(get_current_user)
+):
+    requesting_user_id = str(current_user.get("user_id"))
+    result = display_logs(
+        project_id=project_id,
+        page_number=page_number,
+        requesting_user_id=requesting_user_id
+    )
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=result.get("message", "Failed to fetch project logs")
+    )
+
+@project_router.get("/{project_id}/display_machines", status_code=status.HTTP_200_OK)
+async def get_project_machines(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    requesting_user_id = str(current_user.get("user_id"))
+    result = get_connected_machine(
+        project_id=project_id,
+        requesting_user_id=requesting_user_id
+    )
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=result.get("message", "Failed to fetch project machines")
+    )
+
+@project_router.get("/{project_id}/display_members", status_code=status.HTTP_200_OK)
+async def list_project_members(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    requesting_user_id = str(current_user.get("user_id"))
+    result = get_project_members(
+        project_id=project_id,
+        requesting_user_id=requesting_user_id
+    )
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=result.get("message", "Failed to fetch project members")
+    )
+
+@project_router.delete("/{project_id}/delete", status_code=status.HTTP_200_OK)
+async def delete_project_by_api(
+    project_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    requesting_user_id = str(current_user.get("user_id"))
+    result = delete_project(
+        project_id=project_id,
+        requesting_user_id=requesting_user_id
+    )
+    if result.get("status") == "success":
+        return result
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=result.get("message", "Failed to delete project")
     )
