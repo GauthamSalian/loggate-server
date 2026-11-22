@@ -26,6 +26,14 @@ app.include_router(project_router, prefix="/api/v1/projects")
 app.include_router(payload_router, prefix="/api/v1/payloads")
 app.include_router(triage_router, prefix="/api/v1/triage")
 
+@app.get("/health", status_code=200, tags=["Health"])
+@app.get("/api/v1/health", status_code=200, tags=["Health"])
+def health_check():
+    return {
+        "status": "ok",
+        "service": "loggate-server"
+    }
+
 class ReducedRecord(BaseModel):
     pattern: str
     sample_lines: list[str]

@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 from postgrest.exceptions import APIError
 from typing import Optional
+from datetime import datetime, timezone
 import httpx
 
 env_path = Path(__file__).resolve().parent.parent / ".env"
@@ -269,6 +270,24 @@ async def test_project_slack(project_id: str, requesting_user_id: str, http_clie
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+def calculate_machine_status(last_seen_at: Optional[str]) -> str:
+    if not last_seen_at:
+        return "offline"
+    try:
+        ts_str = str(last_seen_at).replace("Z", "+00:00")
+        dt = datetime.fromisoformat(ts_str)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        diff_seconds = (datetime.now(timezone.utc) - dt).total_seconds()
+        if diff_seconds < 300:  # < 5 minutes
+            return "healthy"
+        elif diff_seconds < 1800:  # < 30 minutes
+            return "warning"
+        else:
+            return "offline"
+    except Exception:
+        return "offline"
+
 def get_connected_machine(project_id: str, requesting_user_id: str):
     if not verify_project_access(user_id=requesting_user_id, project_id=project_id):
         return {
@@ -282,9 +301,15 @@ def get_connected_machine(project_id: str, requesting_user_id: str):
             .eq("project_id", project_id)
             .execute()
         )
+        machines = []
+        for m in (res.data or []):
+            machine_dict = dict(m)
+            machine_dict["status"] = calculate_machine_status(machine_dict.get("last_seen_at"))
+            machines.append(machine_dict)
+
         return {
             "status": "success",
-            "data": res.data or []
+            "data": machines
         }
     except Exception as e:
         return {
