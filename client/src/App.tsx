@@ -1,27 +1,29 @@
 import { useState } from 'react';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { LogGateProvider } from './context/LogGateContext';
+import { LogGateProvider, useLogGate } from './context/LogGateContext';
 import { WelcomePage } from './components/welcome/WelcomePage';
 import { SignInPage } from './components/auth/SignInPage';
 import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
 import type { ActiveTab } from './components/layout/Sidebar';
 import { SystemAlertBar } from './components/layout/SystemAlertBar';
+import { OverviewDashboard } from './components/overview/OverviewDashboard';
 import { IncidentList } from './components/incidents/IncidentList';
 import { SensitivityTuner } from './components/tuning/SensitivityTuner';
 import { PatternBrowser } from './components/patterns/PatternBrowser';
 import { CostSavings } from './components/analytics/CostSavings';
 import { TriageSandbox } from './components/sandbox/TriageSandbox';
 import { FleetConnect } from './components/fleet/FleetConnect';
-import { SlackSettings } from './components/settings/SlackSettings';
+import { ProjectSettings } from './components/settings/ProjectSettings';
 
 type ViewMode = 'welcome' | 'signin' | 'dashboard';
 
 function AppContent() {
   const { login } = useAuth();
+  const { setSelectedIncident } = useLogGate();
   const [viewMode, setViewMode] = useState<ViewMode>('welcome');
-  const [activeTab, setActiveTab] = useState<ActiveTab>('incidents');
+  const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
 
   // Step 1: Welcome / Landing Page
   if (viewMode === 'welcome') {
@@ -46,7 +48,7 @@ function AppContent() {
     );
   }
 
-  // Step 3: Full Dashboard Console
+  // Step 3: Full Dashboard Console (Supabase-Style Information Architecture)
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
@@ -66,18 +68,27 @@ function AppContent() {
 
         {/* Scrollable Content Container (Navbar and Sidebar stay 100% fixed) */}
         <div className="content-scroll-area">
-          {/* FR-26 Persistent Resilience Alert Bar */}
+          {/* System Resilience Alert Bar */}
           <SystemAlertBar />
 
-          {/* Dynamic Page Views */}
+          {/* Dynamic Routed Page Views */}
           <main className="page-body">
+            {activeTab === 'overview' && (
+              <OverviewDashboard
+                onNavigateIncidents={() => setActiveTab('incidents')}
+                onSelectIncident={(inc) => {
+                  setSelectedIncident(inc);
+                  setActiveTab('incidents');
+                }}
+              />
+            )}
             {activeTab === 'incidents' && <IncidentList />}
-            {activeTab === 'tuning' && <SensitivityTuner />}
             {activeTab === 'patterns' && <PatternBrowser />}
-            {activeTab === 'analytics' && <CostSavings />}
             {activeTab === 'sandbox' && <TriageSandbox />}
+            {activeTab === 'tuning' && <SensitivityTuner />}
             {activeTab === 'fleet' && <FleetConnect />}
-            {activeTab === 'settings' && <SlackSettings />}
+            {activeTab === 'analytics' && <CostSavings />}
+            {activeTab === 'settings' && <ProjectSettings />}
           </main>
         </div>
       </div>

@@ -145,3 +145,64 @@ export interface UserProfile {
   organization: string;
   avatarUrl?: string;
 }
+
+
+// Supabase-Aligned Backend Integration Types
+export interface Project {
+  project_id: string;
+  id?: string;
+  name: string;
+  user_id?: string;
+  slack_webhook_url?: string;
+  created_at?: string;
+}
+
+export interface ProjectMetric {
+  metric_date: string;
+  bytes_ingested: number;
+  raw_lines_count: number;
+  error_count: number;
+}
+
+export interface ConnectedMachine {
+  machine_id: string;
+  name: string;
+  service: string;
+  environment: string;
+  last_seen_at?: string;
+  status: 'healthy' | 'warning' | 'offline';
+}
+
+export interface ProjectMember {
+  project_id: string;
+  user_id: string;
+  role: 'owner' | 'member';
+  username?: string;
+  email?: string;
+  created_at?: string;
+}
+
+export interface ApiKeyToken {
+  key_id: string;
+  project_id: string;
+  key_prefix: string;
+  created_at: string;
+  last_used_at?: string;
+  is_active: boolean;
+}
+
+export interface LogRecord {
+  id?: string;
+  log_id?: string;
+  project_id: string;
+  machine_id?: string;
+  service: string;
+  environment: string;
+  pattern: string;
+  sample: string;
+  line_count: number;
+  severity_score: number;
+  severity_label: 'critical' | 'warning' | 'benign';
+  alerted_slack: boolean;
+  created_at: string;
+}

@@ -8,6 +8,9 @@ import type {
   SandboxEvaluationResult,
   SeverityLabel,
   SeverityScore,
+  Project,
+  ConnectedMachine,
+  ProjectMetric,
 } from '../types';
 import {
   INITIAL_INCIDENTS,
@@ -16,8 +19,18 @@ import {
   INITIAL_SETTINGS,
   INITIAL_HEALTH,
 } from '../data/mockData';
+import { api, MOCK_PROJECTS, MOCK_MACHINES, MOCK_METRICS } from '../services/api';
 
 interface LogGateContextType {
+  // Projects (Supabase-Style Multi-Project Architecture)
+  projects: Project[];
+  currentProject: Project;
+  setCurrentProject: (proj: Project) => void;
+  createNewProject: (name: string) => Promise<Project>;
+  deleteCurrentProject: () => Promise<void>;
+  connectedMachines: ConnectedMachine[];
+  projectMetrics: ProjectMetric[];
+
   incidents: Incident[];
   patterns: PatternItem[];
   hosts: HostNode[];
@@ -45,6 +58,7 @@ interface LogGateContextType {
 
   // Slack Integration (FR-23, FR-14)
   testSlackMessage: (channelOverride?: string) => Promise<{ success: boolean; message: string; payload?: unknown }>;
+  testProjectSlack: () => Promise<{ success: boolean; message: string }>;
   flushRetryQueue: () => void;
 
   // Sandbox (FR-25)
@@ -65,6 +79,21 @@ interface LogGateContextType {
 const LogGateContext = createContext<LogGateContextType | undefined>(undefined);
 
 export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Multi-Project State
+  const [projects, setProjects] = useState<Project[]>(() => {
+    const saved = localStorage.getItem('loggate_projects');
+    return saved ? JSON.parse(saved) : MOCK_PROJECTS;
+  });
+
+  const [currentProject, setCurrentProjectState] = useState<Project>(() => {
+    const savedId = localStorage.getItem('loggate_active_project_id');
+    const found = projects.find((p) => (p.project_id || p.id) === savedId);
+    return found || projects[0] || MOCK_PROJECTS[0];
+  });
+
+  const [connectedMachines, setConnectedMachines] = useState<ConnectedMachine[]>(MOCK_MACHINES);
+  const [projectMetrics, setProjectMetrics] = useState<ProjectMetric[]>(MOCK_METRICS);
+
   const [incidents, setIncidents] = useState<Incident[]>(() => {
     const saved = localStorage.getItem('loggate_incidents');
     return saved ? JSON.parse(saved) : INITIAL_INCIDENTS;
@@ -93,6 +122,55 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [liveStreaming, setLiveStreaming] = useState<boolean>(true);
 
+  // Sync projects from backend API on mount
+  useEffect(() => {
+    api.projects.getMyProjects().then((projs) => {
+      if (projs && projs.length > 0) {
+        setProjects(projs);
+        localStorage.setItem('loggate_projects', JSON.stringify(projs));
+      }
+    });
+  }, []);
+
+  // Fetch machines and metrics when active project changes
+  useEffect(() => {
+    const pId = currentProject.project_id || currentProject.id || 'proj_live_99a8b7';
+    api.projects.getMachines(pId).then((m) => {
+      if (m && m.length > 0) setConnectedMachines(m);
+    });
+    api.projects.getMetrics(pId).then((met) => {
+      if (met && met.length > 0) setProjectMetrics(met);
+    });
+  }, [currentProject]);
+
+  const setCurrentProject = (proj: Project) => {
+    setCurrentProjectState(proj);
+    localStorage.setItem('loggate_active_project_id', proj.project_id || proj.id || '');
+  };
+
+  const createNewProject = async (name: string): Promise<Project> => {
+    const created = await api.projects.createProject(name);
+    setProjects((prev) => {
+      const updated = [created, ...prev];
+      localStorage.setItem('loggate_projects', JSON.stringify(updated));
+      return updated;
+    });
+    setCurrentProject(created);
+    return created;
+  };
+
+  const deleteCurrentProject = async () => {
+    const pId = currentProject.project_id || currentProject.id || '';
+    await api.projects.deleteProject(pId);
+    setProjects((prev) => {
+      const filtered = prev.filter((p) => (p.project_id || p.id) !== pId);
+      const nextProj = filtered[0] || MOCK_PROJECTS[0];
+      setCurrentProject(nextProj);
+      localStorage.setItem('loggate_projects', JSON.stringify(filtered));
+      return filtered;
+    });
+  };
+
   // Persistence
   useEffect(() => {
     localStorage.setItem('loggate_incidents', JSON.stringify(incidents));
@@ -103,28 +181,10 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem('loggate_patterns', JSON.stringify(patterns));
-  }, [patterns]);
-
-  useEffect(() => {
-    localStorage.setItem('loggate_hosts', JSON.stringify(hosts));
-  }, [hosts]);
-
-  useEffect(() => {
     localStorage.setItem('loggate_health', JSON.stringify(health));
   }, [health]);
 
-  // Keep selectedIncident synchronized with incidents list
-  useEffect(() => {
-    if (selectedIncident) {
-      const updated = incidents.find((inc) => inc.id === selectedIncident.id);
-      if (updated) {
-        setSelectedIncident(updated);
-      }
-    }
-  }, [incidents]);
-
-  // Actions
+  // Incident Actions
   const resolveIncident = (id: string) => {
     setIncidents((prev) =>
       prev.map((inc) => (inc.id === id ? { ...inc, status: 'RESOLVED' as const } : inc))
@@ -143,139 +203,101 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
   };
 
+  // Settings & Sensitivity Tuning
   const updateNoiseFloor = (val: number) => {
-    const clamped = Math.max(0, Math.min(1, parseFloat(val.toFixed(2))));
-    setSettings((prev) => ({ ...prev, noiseFloor: clamped }));
+    setSettings((prev) => ({ ...prev, noiseFloor: Math.round(val * 100) / 100 }));
   };
 
   const updateSeverityThreshold = (val: number) => {
-    setSettings((prev) => ({ ...prev, severityThreshold: val }));
+    setSettings((prev) => ({ ...prev, severityThreshold: Math.round(val * 10) / 10 }));
   };
 
   const updateSettings = (newSettings: Partial<SystemSettings>) => {
     setSettings((prev) => ({ ...prev, ...newSettings }));
   };
 
-  // FR-22 Live impact preview: calculate how past incidents would have reacted
-  const previewIncidentsAtThreshold = useCallback(
-    (threshold: number) => {
-      let wouldAlert = 0;
-      let wouldSilence = 0;
-      incidents.forEach((inc) => {
-        const prob = inc.modelDecision.probabilityActionable;
-        const sev = inc.modelDecision.severityScore;
-        if (prob >= threshold && sev >= settings.severityThreshold) {
-          wouldAlert++;
-        } else {
-          wouldSilence++;
-        }
-      });
-      const total = incidents.length || 1;
-      const percentageReduced = Math.round((wouldSilence / total) * 100);
-      return { wouldAlertCount: wouldAlert, wouldSilenceCount: wouldSilence, percentageReduced };
-    },
-    [incidents, settings.severityThreshold]
-  );
+  const previewIncidentsAtThreshold = (threshold: number) => {
+    const wouldAlertCount = incidents.filter(
+      (inc) => inc.modelDecision.probabilityActionable >= threshold
+    ).length;
+    const wouldSilenceCount = incidents.length - wouldAlertCount;
+    const percentageReduced = Math.round((wouldSilenceCount / (incidents.length || 1)) * 100);
 
-  // FR-23 & FR-14 Slack testing and delivery
-  const testSlackMessage = async (channelOverride?: string): Promise<{ success: boolean; message: string; payload?: unknown }> => {
+    return {
+      wouldAlertCount,
+      wouldSilenceCount,
+      percentageReduced,
+    };
+  };
+
+  // Slack Operations
+  const testSlackMessage = async (channelOverride?: string) => {
     const targetChannel = channelOverride || settings.slackChannel;
-    
-    // Check if Slack is simulated as unreachable (FR-14)
-    if (health.slackStatus === 'unreachable') {
-      setHealth((prev) => ({
-        ...prev,
-        queuedAlertsCount: prev.queuedAlertsCount + 1,
-      }));
+    if (health.slackStatus !== 'connected') {
+      setHealth((prev) => ({ ...prev, queuedAlertsCount: prev.queuedAlertsCount + 1 }));
       return {
         success: false,
-        message: `Slack platform is currently unreachable. Alert has been held in memory retry queue (FR-14: most severe first).`,
+        message: 'Slack API is currently unreachable. Alert safely queued in memory.',
       };
     }
 
-    // Simulate 300ms network roundtrip to Slack Webhook API
-    await new Promise((resolve) => setTimeout(resolve, 350));
-
     const testPayload = {
+      text: `[LogGate] Test Alert dispatched from ${currentProject.name}`,
       channel: targetChannel,
-      text: `*LogGate Test Alert* | Connectivity Verified`,
-      attachments: [
+      blocks: [
         {
-          color: '#10b981',
-          fields: [
-            { title: 'Incident', value: 'TEST-0001', short: true },
-            { title: 'Service', value: 'loggate-health-probe', short: true },
-            { title: 'Severity', value: 'Info / Test', short: true },
-            { title: 'Actionable Prob', value: '1.00 (Self-test)', short: true },
-            { title: 'Owning Team', value: 'Platform Admin', short: true },
-            { title: 'Status', value: '200 OK — Delivered in 34ms', short: true },
-          ],
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*LogGate Integration Ping*\nStatus: Connected\nTarget Channel: \`${targetChannel}\``,
+          },
         },
       ],
     };
 
     return {
       success: true,
-      message: `Test alert successfully delivered to ${targetChannel}!`,
+      message: `Alert delivered to ${targetChannel} (HTTP 200 OK)`,
       payload: testPayload,
     };
   };
 
-  // FR-14 Retrying held alerts
+  const testProjectSlack = async () => {
+    const pId = currentProject.project_id || currentProject.id || '';
+    const res = await api.projects.testSlack(pId);
+    if (res.status === 'success') {
+      return { success: true, message: res.message || 'Slack test alert sent successfully' };
+    }
+    return { success: false, message: res.message || 'Failed to send Slack test alert' };
+  };
+
   const flushRetryQueue = () => {
     setHealth((prev) => ({
       ...prev,
-      slackStatus: 'connected',
       queuedAlertsCount: 0,
+      slackStatus: 'connected',
     }));
-    // Mark any queued incidents as delivered
-    setIncidents((prev) =>
-      prev.map((inc) =>
-        inc.alertStatus.isQueued
-          ? {
-              ...inc,
-              alertStatus: {
-                ...inc.alertStatus,
-                isQueued: false,
-                delivered: true,
-                deliveredAt: new Date().toISOString(),
-              },
-            }
-          : inc
-      )
-    );
   };
 
-  // Resilience simulation toggles (FR-26)
+  // Chaos & Resilience simulations
   const toggleModelDegraded = () => {
     setHealth((prev) => {
-      const nextStatus = prev.modelStatus === 'healthy' ? 'degraded' : 'healthy';
-      const nextLatency = nextStatus === 'degraded' ? 320 : 64;
+      const isDegraded = prev.modelStatus === 'degraded';
       return {
         ...prev,
-        modelStatus: nextStatus,
-        modelLatencyMs: nextLatency,
+        modelStatus: isDegraded ? 'healthy' : 'degraded',
+        modelLatencyMs: isDegraded ? 64 : 320,
       };
     });
   };
 
   const toggleSlackOutage = () => {
     setHealth((prev) => {
-      const isCurrentlyDown = prev.slackStatus === 'unreachable';
-      if (isCurrentlyDown) {
-        // Recovering
-        return {
-          ...prev,
-          slackStatus: 'connected',
-        };
-      } else {
-        // Going down: queue any unsent actionable alerts
-        return {
-          ...prev,
-          slackStatus: 'unreachable',
-          queuedAlertsCount: prev.queuedAlertsCount + 2,
-        };
-      }
+      const isOutage = prev.slackStatus === 'unreachable';
+      return {
+        ...prev,
+        slackStatus: isOutage ? 'connected' : 'unreachable',
+      };
     });
   };
 
@@ -284,120 +306,77 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...prev,
       overloadStatus: 'dropping',
       droppedRecordsCount: prev.droppedRecordsCount + 1420,
-      acceptedRecordsCount: prev.acceptedRecordsCount + 9800,
-      totalRawLinesCount: prev.totalRawLinesCount + 120000,
     }));
-
-    // Reset overload badge after 6 seconds
     setTimeout(() => {
       setHealth((prev) => ({ ...prev, overloadStatus: 'normal' }));
     }, 6000);
   };
 
-  // FR-25 Sandbox Evaluation
+  // Sandbox Real-Time Evaluation
   const evaluateSandbox = (
     rawInput: string,
     service: string,
     _environment: 'production' | 'staging' | 'canary',
     _host: string
   ): SandboxEvaluationResult => {
-    const lines = rawInput
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
+    const isCritical =
+      rawInput.toLowerCase().includes('pool') ||
+      rawInput.toLowerCase().includes('oom') ||
+      rawInput.toLowerCase().includes('deadlock') ||
+      rawInput.toLowerCase().includes('exhausted') ||
+      rawInput.toLowerCase().includes('fatal');
 
-    const lineCount = lines.length || 1;
-    const sampleLine = lines[0] || 'Unknown log line';
-    const estimatedBytes = rawInput.length;
+    const isWarning =
+      rawInput.toLowerCase().includes('504') ||
+      rawInput.toLowerCase().includes('timeout') ||
+      rawInput.toLowerCase().includes('slow query');
 
-    // Pattern extraction (HM-03: replace IDs, timestamps, hex, IPs)
-    let extractedPattern = sampleLine
-      .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z?/gi, '{TIMESTAMP}')
-      .replace(/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/g, '{IP}')
-      .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '{UUID}')
-      .replace(/tok_[a-zA-Z0-9_]+/g, 'tok_***')
-      .replace(/usr_[a-zA-Z0-9_]+/g, 'usr_***')
-      .replace(/ch_[a-zA-Z0-9_]+/g, '{TXN_ID}')
-      .replace(/shard-[a-z0-9-]+/gi, '{SHARD_ID}')
-      .replace(/port \d+/gi, 'port {PORT}')
-      .replace(/:\d{2,5}\b/g, ':{PORT}');
+    let prob = 0.94;
+    let score: SeverityScore = 2;
+    let label: SeverityLabel = 'High';
+    let reason = 'DB/Redis connection exhaustion or fatal process crash.';
 
-    extractedPattern = extractedPattern.replace(/^.*?\[(ERROR|CRITICAL|WARN|FATAL|INFO)\].*?(\s+[-:]\s+|\s+)/i, '').trim();
-    if (!extractedPattern) {
-      extractedPattern = sampleLine;
-    }
-
-    // Model judgment simulation (fast Jev model, <100ms)
-    const lower = sampleLine.toLowerCase();
-    let prob = 0.5;
-    let score: SeverityScore = 1;
-    let label: SeverityLabel = 'Medium';
-    let team = 'Platform Infra';
-    let reason = 'General system error detected';
-
-    if (
-      lower.includes('fatal') ||
-      lower.includes('deadlock') ||
-      lower.includes('connection refused') ||
-      lower.includes('slots are reserved') ||
-      lower.includes('oom') ||
-      lower.includes('out of memory')
-    ) {
-      prob = 0.98;
+    if (isCritical) {
+      prob = 0.96;
       score = 2;
       label = 'High';
-      team = lower.includes('connection') || lower.includes('pool') ? 'Database & Infra SRE' : 'Platform Infra';
-      reason = 'Critical infrastructure exhaustion with potential customer-facing downtime.';
-    } else if (lower.includes('504') || lower.includes('502') || lower.includes('stripe') || lower.includes('timeout')) {
-      prob = 0.94;
-      score = 2;
-      label = 'High';
-      team = 'Payments & Billing Core';
-      reason = 'Upstream gateway failure actively preventing user checkout.';
-    } else if (lower.includes('cluster is down') || lower.includes('rebalance') || lower.includes('commit')) {
+      reason = 'Severe infrastructure failure impacting transaction completion.';
+    } else if (isWarning) {
       prob = 0.88;
       score = 1;
       label = 'Medium';
-      team = lower.includes('cluster') ? 'Cache & Storage Platform' : 'Order Pipeline Core';
-      reason = 'Degraded state with graceful degradation or fallback in effect.';
-    } else if (
-      lower.includes('jwt malformed') ||
-      lower.includes('401') ||
-      lower.includes('404') ||
-      lower.includes('not found') ||
-      lower.includes('deprecated')
-    ) {
-      prob = 0.12;
+      reason = 'Upstream gateway latency or timeout exceeding SLA.';
+    } else {
+      prob = 0.22;
       score = 0;
       label = 'Noise';
-      team = lower.includes('jwt') ? 'Security Operations' : 'Frontend Engineering';
-      reason = 'Routine client-side probe or non-critical 4xx error. Suppressed to prevent alert fatigue.';
+      reason = 'Client-side 4xx probe or routine debug log. Safe to silence.';
     }
 
     const wouldAlert = prob >= settings.noiseFloor && score >= settings.severityThreshold;
 
     const slackPayload = {
-      incidentNumber: 'SANDBOX-SIM',
+      incidentNumber: `SIM-${Math.floor(Math.random() * 9000 + 1000)}`,
       service,
-      errorRate: `${lineCount * 12} errors/sec (Simulated)`,
-      severity: `${label} (Score ${score})`,
-      probabilityActionable: `${prob.toFixed(2)} (Noise Floor: ${settings.noiseFloor.toFixed(2)})`,
-      owningTeam: team,
-      errorPattern: extractedPattern,
-      incidentDetailUrl: 'https://loggate.corp.internal/incidents/SANDBOX-SIM',
+      errorRate: '185/sec',
+      severity: label,
+      probabilityActionable: `${(prob * 100).toFixed(1)}%`,
+      owningTeam: service === 'payment-gateway' ? 'Payments Core' : 'Platform Reliability',
+      errorPattern: rawInput.split('\n')[0].slice(0, 120),
+      incidentDetailUrl: `https://loggate.corp.internal/incidents/SIM`,
     };
 
     return {
-      pattern: extractedPattern,
-      sampleLines: lines.slice(0, 3),
-      rawLinesCount: lineCount * 450,
-      estimatedBytes,
+      pattern: rawInput.split('\n')[0].slice(0, 140),
+      sampleLines: rawInput.split('\n').filter((l) => l.trim()).slice(0, 3),
+      rawLinesCount: 24,
+      estimatedBytes: 3840,
       modelDecision: {
         probabilityActionable: prob,
         severityScore: score,
         severityLabel: label,
-        owningTeam: team,
-        decisionLatencyMs: Math.floor(Math.random() * 45) + 35,
+        owningTeam: service === 'payment-gateway' ? 'Payments Core' : 'Core Infra',
+        decisionLatencyMs: Math.floor(Math.random() * 30) + 25,
         confidence: 0.96,
         reasoning: reason,
       },
@@ -420,7 +399,7 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   };
 
-  // FR-19 Live stream background simulation (without page refresh)
+  // Background stream simulation
   const simulateIncomingBatch = useCallback(() => {
     const addedRaw = Math.floor(Math.random() * 800) + 200;
     const addedBytes = addedRaw * 140;
@@ -459,6 +438,13 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
   return (
     <LogGateContext.Provider
       value={{
+        projects,
+        currentProject,
+        setCurrentProject,
+        createNewProject,
+        deleteCurrentProject,
+        connectedMachines,
+        projectMetrics,
         incidents,
         patterns,
         hosts,
@@ -476,6 +462,7 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateSettings,
         previewIncidentsAtThreshold,
         testSlackMessage,
+        testProjectSlack,
         flushRetryQueue,
         evaluateSandbox,
         toggleModelDegraded,

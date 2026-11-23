@@ -1,22 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useLogGate } from '../../context/LogGateContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import type { ActiveTab } from './Sidebar';
 import {
+  Shield,
+  ChevronDown,
+  Check,
+  Plus,
+  Zap,
   Activity,
+  LogOut,
   Sun,
   Moon,
-  Zap,
+  Sparkles,
+  AlertTriangle,
   Play,
   Pause,
-  AlertTriangle,
-  Sparkles,
   Server,
-  User,
-  LogOut,
-  ChevronDown,
-  Home,
+  Layers,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -25,18 +27,12 @@ interface NavbarProps {
   onGoHome: () => void;
 }
 
-const TAB_TITLES: Record<ActiveTab, string> = {
-  incidents: 'Live Incident Triage',
-  tuning: 'Noise-Floor & Sensitivity',
-  patterns: 'Pattern Catalog',
-  analytics: 'Cost Avoidance & ROI',
-  sandbox: 'Triage Sandbox',
-  fleet: 'Host Fleet Nodes',
-  settings: 'Slack Alert Routing',
-};
-
-export const Navbar: React.FC<NavbarProps> = ({ activeTab = 'incidents', onOpenLogin, onGoHome }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
   const {
+    projects,
+    currentProject,
+    setCurrentProject,
+    createNewProject,
     health,
     liveStreaming,
     setLiveStreaming,
@@ -45,293 +41,480 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab = 'incidents', onOpenL
     toggleModelDegraded,
     toggleSlackOutage,
   } = useLogGate();
-  const { user, isAuthenticated, logout } = useAuth();
+
+  const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
 
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [selectedEnv, setSelectedEnv] = useState<'prod' | 'staging'>('prod');
   const [showSimMenu, setShowSimMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const activeTitle = TAB_TITLES[activeTab] || 'Observability Console';
+  const projDropdownRef = useRef<HTMLDivElement>(null);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+  const simDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (projDropdownRef.current && !projDropdownRef.current.contains(e.target as Node)) {
+        setProjectDropdownOpen(false);
+      }
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+      if (simDropdownRef.current && !simDropdownRef.current.contains(e.target as Node)) {
+        setShowSimMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleCreateProjectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProjectName.trim()) return;
+    await createNewProject(newProjectName.trim());
+    setNewProjectName('');
+    setShowNewProjectModal(false);
+  };
 
   return (
-    <header
-      className="glass-panel"
-      style={{
-        position: 'relative',
-        zIndex: 50,
-        height: '60px',
-        flexShrink: 0,
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: '1px solid var(--border-subtle)',
-        gap: '12px',
-      }}
-    >
-      {/* Left: Clean Active Title (never truncates) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        <span
-          style={{
-            fontSize: '1.05rem',
-            fontWeight: 800,
-            letterSpacing: '-0.01em',
-            color: 'var(--text-primary)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {activeTitle}
-        </span>
-      </div>
-
-      {/* Center: Compact Telemetry Bar */}
-      <div
+    <>
+      <header
         style={{
+          height: '58px',
+          background: 'var(--bg-surface)',
+          borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          background: 'var(--bg-card-subtle)',
-          padding: '4px 14px',
-          borderRadius: '9999px',
-          border: '1px solid var(--border-subtle)',
+          justifyContent: 'space-between',
+          padding: '0 20px',
+          zIndex: 40,
+          position: 'relative',
           flexShrink: 0,
         }}
-        className="telemetry-bar"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.775rem' }}>
-          <span className="pulse-dot pulse-dot-green" />
-          <span style={{ color: 'var(--text-muted)' }}>Jev:</span>
-          <strong style={{ color: health.modelStatus === 'healthy' ? '#10b981' : '#f59e0b', fontFamily: 'var(--font-mono)' }}>
-            {health.modelLatencyMs}ms
-          </strong>
-        </div>
-
-        <div style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.775rem' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Cut:</span>
-          <strong style={{ color: '#60a5fa', fontFamily: 'var(--font-mono)' }}>98.6%</strong>
-        </div>
-
-        <div style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.775rem' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Slack:</span>
-          <strong style={{ color: health.slackStatus === 'connected' ? '#10b981' : '#ef4444' }}>
-            {health.slackStatus === 'connected' ? 'Connected' : `Held (${health.queuedAlertsCount})`}
-          </strong>
-        </div>
-      </div>
-
-      {/* Right: Operational Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        {/* Welcome Overview Link */}
-        <button
-          onClick={onGoHome}
-          className="btn btn-sm btn-outline"
-          title="Return to Welcome Overview"
-          style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.75rem' }}
-        >
-          <Home size={13} />
-          <span>Overview</span>
-        </button>
-
-        {/* Live stream toggle */}
-        <button
-          onClick={() => setLiveStreaming(!liveStreaming)}
-          className={`btn btn-sm ${liveStreaming ? 'btn-secondary' : 'btn-outline'}`}
-          title={liveStreaming ? 'Pause live stream intake' : 'Resume live stream intake'}
-          style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.75rem' }}
-        >
-          {liveStreaming ? (
-            <>
-              <span className="pulse-dot pulse-dot-green" />
-              <Pause size={12} />
-              <span>Live</span>
-            </>
-          ) : (
-            <>
-              <Play size={12} color="#94a3b8" />
-              <span>Paused</span>
-            </>
-          )}
-        </button>
-
-        {/* Test Scenarios dropdown */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowSimMenu(!showSimMenu)}
-            className="btn btn-sm btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.75rem' }}
+        {/* Left: Supabase-Style Project Switcher Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          {/* Logo */}
+          <div
+            onClick={onGoHome}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '9px',
+              cursor: 'pointer',
+              userSelect: 'none',
+            }}
           >
-            <Sparkles size={13} color="#f59e0b" />
-            <span>Test Scenarios</span>
-            <ChevronDown size={11} />
-          </button>
-
-          {showSimMenu && (
             <div
-              className="card"
               style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '6px',
-                width: '280px',
-                padding: '8px',
-                zIndex: 100,
-                boxShadow: 'var(--shadow-lg)',
-                border: '1px solid var(--border-strong)',
+                width: '30px',
+                height: '30px',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#10b981',
               }}
             >
-              <div
-                style={{
-                  padding: '6px 10px',
-                  fontSize: '0.6875rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                URD Requirement Simulations
-              </div>
-
-              <button
-                onClick={() => {
-                  simulateIncomingBatch();
-                  setShowSimMenu(false);
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'flex-start', padding: '7px 10px', fontSize: '0.8125rem' }}
-              >
-                <Zap size={13} color="#3b82f6" />
-                <span>Inject Error Batch (FR-01/04)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  toggleModelDegraded();
-                  setShowSimMenu(false);
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'flex-start', padding: '7px 10px', fontSize: '0.8125rem' }}
-              >
-                <Activity size={13} color="#f59e0b" />
-                <span>Toggle Model Degraded (FR-16)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  toggleSlackOutage();
-                  setShowSimMenu(false);
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'flex-start', padding: '7px 10px', fontSize: '0.8125rem' }}
-              >
-                <AlertTriangle size={13} color="#ef4444" />
-                <span>Toggle Slack Outage (FR-14)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  simulateOverloadBurst();
-                  setShowSimMenu(false);
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'flex-start', padding: '7px 10px', fontSize: '0.8125rem' }}
-              >
-                <Server size={13} color="#8b5cf6" />
-                <span>Simulate 10k/sec Burst (FR-03)</span>
-              </button>
+              <Shield size={17} />
             </div>
-          )}
-        </div>
-
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="btn btn-sm btn-outline"
-          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-          style={{ width: '32px', height: '30px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
-        </button>
-
-        {/* User Account / Role */}
-        {isAuthenticated && user ? (
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="btn btn-sm btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px' }}
+            <span
+              style={{
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                letterSpacing: '-0.02em',
+                color: 'var(--text-primary)',
+              }}
             >
-              <div
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  background: 'var(--brand-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.625rem',
-                  color: '#fff',
-                  fontWeight: 700,
-                }}
-              >
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ textAlign: 'left', lineHeight: 1 }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
-                <div style={{ fontSize: '0.5875rem', color: 'var(--text-muted)' }}>{user.role}</div>
-              </div>
-              <ChevronDown size={10} />
+              LogGate
+            </span>
+          </div>
+
+          {/* Breadcrumb Separator */}
+          <span style={{ color: 'var(--border-strong)', fontSize: '1.1rem', fontWeight: 300 }}>/</span>
+
+          {/* Project Switcher Dropdown */}
+          <div ref={projDropdownRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setProjectDropdownOpen(!projectDropdownOpen)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '5px 10px',
+                borderRadius: '6px',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+              }}
+            >
+              <Layers size={14} color="#10b981" />
+              <span>{currentProject.name}</span>
+              <ChevronDown size={13} color="var(--text-muted)" />
             </button>
 
-            {showUserMenu && (
+            {projectDropdownOpen && (
               <div
-                className="card"
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '6px',
+                  width: '260px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 100,
+                  padding: '6px',
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                    color: 'var(--text-muted)',
+                    padding: '6px 10px 4px 10px',
+                  }}
+                >
+                  Your Projects
+                </div>
+
+                {projects.map((proj) => {
+                  const isCurrent =
+                    (proj.project_id || proj.id) === (currentProject.project_id || currentProject.id);
+                  return (
+                    <div
+                      key={proj.project_id || proj.id}
+                      onClick={() => {
+                        setCurrentProject(proj);
+                        setProjectDropdownOpen(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '7px 10px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '0.8125rem',
+                        background: isCurrent ? 'var(--bg-card-hover)' : 'transparent',
+                        color: isCurrent ? '#10b981' : 'var(--text-primary)',
+                      }}
+                      className="dropdown-item"
+                    >
+                      <span style={{ fontWeight: isCurrent ? 600 : 400 }}>{proj.name}</span>
+                      {isCurrent && <Check size={14} color="#10b981" />}
+                    </div>
+                  );
+                })}
+
+                <div style={{ height: '1px', background: 'var(--border-subtle)', margin: '6px 0' }} />
+
+                <button
+                  onClick={() => {
+                    setProjectDropdownOpen(false);
+                    setShowNewProjectModal(true);
+                  }}
+                  className="btn btn-outline btn-sm"
+                  style={{ width: '100%', justifyContent: 'flex-start', gap: '6px' }}
+                >
+                  <Plus size={13} color="#10b981" />
+                  <span>Create New Project</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Environment Tag */}
+          <div
+            onClick={() => setSelectedEnv(selectedEnv === 'prod' ? 'staging' : 'prod')}
+            title="Click to toggle environment"
+            style={{
+              padding: '2px 8px',
+              borderRadius: '4px',
+              fontSize: '0.6875rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em',
+              cursor: 'pointer',
+              userSelect: 'none',
+              background: selectedEnv === 'prod' ? 'rgba(16, 185, 129, 0.14)' : 'rgba(245, 158, 11, 0.14)',
+              color: selectedEnv === 'prod' ? '#34d399' : '#fbbf24',
+              border: `1px solid ${selectedEnv === 'prod' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+            }}
+          >
+            {selectedEnv}
+          </div>
+        </div>
+
+        {/* Right: Telemetry, Sandbox & User Menu */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Uptime Health Pill */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '7px',
+              background: 'var(--bg-card-subtle)',
+              border: '1px solid var(--border-subtle)',
+              padding: '4px 10px',
+              borderRadius: '9999px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+            }}
+          >
+            <span className="pulse-dot pulse-dot-green" />
+            <span style={{ color: 'var(--text-secondary)' }}>99.9% Uptime</span>
+          </div>
+
+          {/* Live Feed Toggle */}
+          <button
+            onClick={() => setLiveStreaming(!liveStreaming)}
+            className="btn btn-secondary btn-sm"
+            style={{ padding: '4px 9px' }}
+            title={liveStreaming ? 'Pause live stream' : 'Resume live stream'}
+          >
+            {liveStreaming ? (
+              <>
+                <Pause size={12} color="#10b981" />
+                <span style={{ fontSize: '0.75rem' }}>Live</span>
+              </>
+            ) : (
+              <>
+                <Play size={12} color="var(--text-muted)" />
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Paused</span>
+              </>
+            )}
+          </button>
+
+          {/* Resilience / Test Scenarios */}
+          <div ref={simDropdownRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowSimMenu(!showSimMenu)}
+              className="btn btn-secondary btn-sm"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Sparkles size={13} color="#3b82f6" />
+              <span>Scenarios</span>
+              <ChevronDown size={12} />
+            </button>
+
+            {showSimMenu && (
+              <div
                 style={{
                   position: 'absolute',
                   top: '100%',
                   right: 0,
                   marginTop: '6px',
-                  width: '230px',
-                  padding: '10px',
-                  zIndex: 100,
-                  boxShadow: 'var(--shadow-lg)',
+                  width: '240px',
+                  background: 'var(--bg-card)',
                   border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 100,
+                  padding: '6px',
                 }}
               >
-                <div style={{ padding: '4px 6px 8px 6px', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.8125rem', fontWeight: 700 }}>{user.name}</div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>{user.email}</div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--brand-primary)', marginTop: '2px' }}>
-                    {user.organization}
-                  </div>
+                <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', padding: '6px 10px' }}>
+                  Chaos Testing (NFR Resilience)
                 </div>
                 <button
                   onClick={() => {
-                    logout();
-                    setShowUserMenu(false);
-                    onGoHome();
+                    toggleModelDegraded();
+                    setShowSimMenu(false);
                   }}
-                  className="btn btn-outline"
-                  style={{ width: '100%', justifyContent: 'flex-start', marginTop: '6px', color: '#f87171', padding: '6px 8px', fontSize: '0.75rem' }}
+                  className="btn btn-outline btn-sm"
+                  style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}
                 >
-                  <LogOut size={13} />
-                  <span>Sign Out</span>
+                  <AlertTriangle size={13} color="#f59e0b" />
+                  <span>Toggle Jev Latency ({health.modelStatus === 'degraded' ? 'Recover' : 'Degrade'})</span>
+                </button>
+                <button
+                  onClick={() => {
+                    simulateOverloadBurst();
+                    setShowSimMenu(false);
+                  }}
+                  className="btn btn-outline btn-sm"
+                  style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}
+                >
+                  <Server size={13} color="#ef4444" />
+                  <span>Simulate Overload Drop (FR-03)</span>
+                </button>
+                <button
+                  onClick={() => {
+                    toggleSlackOutage();
+                    setShowSimMenu(false);
+                  }}
+                  className="btn btn-outline btn-sm"
+                  style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}
+                >
+                  <Activity size={13} color="#60a5fa" />
+                  <span>Simulate Slack Webhook Outage</span>
+                </button>
+                <button
+                  onClick={() => {
+                    simulateIncomingBatch();
+                    setShowSimMenu(false);
+                  }}
+                  className="btn btn-outline btn-sm"
+                  style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}
+                >
+                  <Zap size={13} color="#10b981" />
+                  <span>Inject Log Batch Now</span>
                 </button>
               </div>
             )}
           </div>
-        ) : (
-          <button onClick={onOpenLogin} className="btn btn-sm btn-primary">
-            <User size={13} />
-            <span>Sign In</span>
+
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="btn btn-secondary btn-sm"
+            style={{ width: '32px', height: '32px', padding: 0 }}
+            title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           </button>
-        )}
-      </div>
-    </header>
+
+          {/* User Menu */}
+          <div ref={userDropdownRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '4px 10px',
+              }}
+            >
+              <div
+                style={{
+                  width: '22px',
+                  height: '22px',
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  color: '#0c0d0e',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {user?.name ? user.name[0].toUpperCase() : 'U'}
+              </div>
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{user?.name || 'Admin'}</span>
+              <ChevronDown size={12} color="var(--text-muted)" />
+            </button>
+
+            {showUserMenu && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '6px',
+                  width: '220px',
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-strong)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: 'var(--shadow-lg)',
+                  zIndex: 100,
+                  padding: '8px',
+                }}
+              >
+                <div style={{ padding: '6px 8px 10px 8px', borderBottom: '1px solid var(--border-subtle)' }}>
+                  <div style={{ fontWeight: 600, fontSize: '0.8125rem' }}>{user?.name || 'Platform Admin'}</div>
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>{user?.email || 'admin@loggate.io'}</div>
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      marginTop: '4px',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      fontSize: '0.625rem',
+                      fontWeight: 700,
+                      background: 'rgba(16, 185, 129, 0.15)',
+                      color: '#34d399',
+                    }}
+                  >
+                    {user?.role || 'Owner'}
+                  </div>
+                </div>
+
+                <div style={{ paddingTop: '6px' }}>
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      logout();
+                    }}
+                    className="btn btn-outline btn-sm"
+                    style={{ width: '100%', justifyContent: 'flex-start', color: '#f87171', border: 'none' }}
+                  >
+                    <LogOut size={13} />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* New Project Modal */}
+      {showNewProjectModal && (
+        <div className="modal-overlay" onClick={() => setShowNewProjectModal(false)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '6px' }}>
+              Create New Project
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginBottom: '18px' }}>
+              A project isolates your machines, API keys, error patterns, and alerting configurations.
+            </p>
+
+            <form onSubmit={handleCreateProjectSubmit}>
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '6px' }}>
+                  Project Name
+                </label>
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="e.g. auth-service-prod"
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  autoFocus
+                  required
+                />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowNewProjectModal(false)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary btn-sm">
+                  Create Project
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
