@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useLogGate } from '../../context/LogGateContext';
 import { SANDBOX_PRESETS } from '../../data/mockData';
 import type { SandboxEvaluationResult } from '../../types';
@@ -9,15 +9,16 @@ import {
   Terminal,
   Play,
   Sparkles,
-  ShieldCheck,
   CheckCircle2,
   AlertCircle,
   Copy,
   Check,
+  Zap,
 } from 'lucide-react';
 
 export const TriageSandbox: React.FC = () => {
   const { evaluateSandbox } = useLogGate();
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   const [selectedPresetId, setSelectedPresetId] = useState<string>(SANDBOX_PRESETS[0].id);
   const [rawInput, setRawInput] = useState<string>(SANDBOX_PRESETS[0].rawLines);
@@ -26,8 +27,8 @@ export const TriageSandbox: React.FC = () => {
   const [host, setHost] = useState<string>(SANDBOX_PRESETS[0].host);
 
   const [evaluating, setEvaluating] = useState<boolean>(false);
+  const [justEvaluated, setJustEvaluated] = useState<boolean>(false);
   const [result, setResult] = useState<SandboxEvaluationResult | null>(() => {
-    // Pre-evaluate first preset so right pane isn't blank on initial load
     return evaluateSandbox(
       SANDBOX_PRESETS[0].rawLines,
       SANDBOX_PRESETS[0].service,
@@ -50,23 +51,33 @@ export const TriageSandbox: React.FC = () => {
       // Auto-evaluate preset
       const evalRes = evaluateSandbox(p.rawLines, p.service, p.environment, p.host);
       setResult(evalRes);
+      setJustEvaluated(true);
+      setTimeout(() => setJustEvaluated(false), 2000);
     }
   };
 
   const handleRunEvaluation = () => {
     if (!rawInput.trim()) {
-      setValidationError('Please enter at least one log line or choose a preset.');
+      setValidationError('Please enter at least one log line or choose an incident preset.');
       return;
     }
 
     setValidationError(null);
     setEvaluating(true);
 
+    // Realistic evaluation delay with smooth feedback
     setTimeout(() => {
       const evalResult = evaluateSandbox(rawInput, service, environment, host);
       setResult(evalResult);
       setEvaluating(false);
-    }, 100);
+      setJustEvaluated(true);
+      setTimeout(() => setJustEvaluated(false), 2500);
+
+      // Smooth scroll to results on smaller screens
+      if (window.innerWidth < 1024 && resultsRef.current) {
+        resultsRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 350);
   };
 
   const handleCopyPattern = () => {
@@ -77,50 +88,77 @@ export const TriageSandbox: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Header */}
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '8px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#10b981',
+              }}
+            >
+              <Terminal size={18} />
+            </div>
+            <div>
+              <h1 style={{ fontSize: '1.35rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                Interactive Triage Sandbox
+              </h1>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '2px' }}>
+                Simulate real-time token masking &amp; Jev model scoring. <strong>Backend is optional</strong> — runs instant client-side inference if server is offline.
+              </p>
+            </div>
+          </div>
+
           <div
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '8px',
-              background: 'rgba(16, 185, 129, 0.15)',
+              padding: '4px 10px',
+              borderRadius: '9999px',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              background: 'rgba(16, 185, 129, 0.12)',
+              color: '#34d399',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
-              color: '#10b981',
+              gap: '6px',
             }}
           >
-            <Terminal size={18} />
+            <Zap size={13} />
+            <span>Zero Slack Alert Dispatch (Safe Isolation)</span>
           </div>
-          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-            Interactive Triage Sandbox
-          </h1>
         </div>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '4px' }}>
-          Safe testing ground to simulate token masking and Jev model inference with guaranteed zero Slack alert dispatch.
-        </p>
       </div>
 
-      {/* Supabase-Style 2-Column Split Pane */}
+      {/* Supabase-Style 2-Column Split Pane (Guaranteed Side-by-Side on Desktop) */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
-          gap: '24px',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.15fr)',
+          gap: '20px',
           alignItems: 'flex-start',
         }}
+        className="sandbox-grid"
       >
         {/* ===================== LEFT COLUMN: INPUT PANEL ===================== */}
-        <div className="card" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Quick Presets */}
           <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
-              Incident Presets
-            </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                Incident Presets
+              </label>
+              <span style={{ fontSize: '0.6875rem', color: '#10b981' }}>Click any to test</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               {SANDBOX_PRESETS.map((preset) => {
                 const isSelected = selectedPresetId === preset.id;
                 return (
@@ -128,19 +166,19 @@ export const TriageSandbox: React.FC = () => {
                     key={preset.id}
                     onClick={() => handleSelectPreset(preset.id)}
                     style={{
-                      padding: '10px 12px',
+                      padding: '8px 10px',
                       borderRadius: '6px',
                       border: isSelected ? '1px solid #10b981' : '1px solid var(--border-subtle)',
-                      background: isSelected ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-input)',
+                      background: isSelected ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-input)',
                       cursor: 'pointer',
                       textAlign: 'left',
                       transition: 'all 0.12s ease',
                     }}
                   >
-                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: isSelected ? '#10b981' : 'var(--text-primary)' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: isSelected ? '#10b981' : 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {preset.name}
                     </div>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                       {preset.service}
                     </div>
                   </button>
@@ -150,7 +188,7 @@ export const TriageSandbox: React.FC = () => {
           </div>
 
           {/* Config: Service & Env */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>
                 Service Name
@@ -160,7 +198,7 @@ export const TriageSandbox: React.FC = () => {
                 className="input-field"
                 value={service}
                 onChange={(e) => setService(e.target.value)}
-                placeholder="e.g. auth-service"
+                placeholder="e.g. payment-gateway"
               />
             </div>
 
@@ -187,19 +225,19 @@ export const TriageSandbox: React.FC = () => {
                 Raw Log Lines or Stacktrace
               </label>
               <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
-                Paste lines with timestamps, IPs, UUIDs
+                Auto-masks IPs, tokens, UUIDs
               </span>
             </div>
             <textarea
               className="input-field"
-              rows={8}
+              rows={7}
               style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', lineHeight: '1.5', resize: 'vertical' }}
               value={rawInput}
               onChange={(e) => {
                 setRawInput(e.target.value);
                 setSelectedPresetId('');
               }}
-              placeholder="Paste raw log lines..."
+              placeholder="Paste raw log lines with timestamps or stack traces..."
             />
           </div>
 
@@ -215,48 +253,75 @@ export const TriageSandbox: React.FC = () => {
               onClick={handleRunEvaluation}
               disabled={evaluating}
               className="btn btn-primary"
-              style={{ width: '100%', padding: '10px' }}
+              style={{
+                width: '100%',
+                padding: '10px',
+                fontSize: '0.875rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}
             >
               {evaluating ? (
                 <>
-                  <Sparkles size={15} />
-                  <span>Evaluating with Jev Model...</span>
+                  <Sparkles size={16} />
+                  <span>Evaluating Jev Model Triage...</span>
                 </>
               ) : (
                 <>
-                  <Play size={15} />
+                  <Play size={16} />
                   <span>Simulate Triage Decision</span>
                 </>
               )}
             </button>
           </div>
+
+          {justEvaluated && (
+            <div
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: 'rgba(16, 185, 129, 0.15)',
+                color: '#34d399',
+                fontSize: '0.75rem',
+                textAlign: 'center',
+                fontWeight: 600,
+                animation: 'pulse-ring 1s ease',
+              }}
+            >
+              Decision calculated &amp; output updated on the right!
+            </div>
+          )}
         </div>
 
         {/* ===================== RIGHT COLUMN: DECISION OUTPUT PANEL ===================== */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {result ? (
+        <div ref={resultsRef} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {result && (
             <>
               {/* Verdict Banner */}
               <div
                 style={{
-                  padding: '16px 20px',
+                  padding: '16px 18px',
                   borderRadius: 'var(--radius-lg)',
                   background: result.wouldAlert ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
                   border: result.wouldAlert ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {result.wouldAlert ? (
-                    <AlertCircle size={22} color="#f87171" />
+                    <AlertCircle size={22} color="#f87171" style={{ flexShrink: 0 }} />
                   ) : (
-                    <CheckCircle2 size={22} color="#34d399" />
+                    <CheckCircle2 size={22} color="#34d399" style={{ flexShrink: 0 }} />
                   )}
                   <div>
-                    <strong style={{ fontSize: '0.95rem', color: result.wouldAlert ? '#f87171' : '#34d399' }}>
-                      {result.wouldAlert ? 'VERDICT: WOULD ALERT SLACK' : 'VERDICT: SUPPRESSED AS NOISE'}
+                    <strong style={{ fontSize: '0.9rem', color: result.wouldAlert ? '#f87171' : '#34d399', display: 'block' }}>
+                      {result.wouldAlert ? 'SIMULATION VERDICT: WOULD ALERT SLACK' : 'SIMULATION VERDICT: SUPPRESSED (BENIGN NOISE)'}
                     </strong>
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
                       {result.verdictReason}
@@ -268,90 +333,98 @@ export const TriageSandbox: React.FC = () => {
               </div>
 
               {/* AI Scoring Breakdown Card */}
-              <div className="card" style={{ padding: '22px' }}>
-                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, marginBottom: '14px' }}>
-                  Jev AI Judgment &amp; Confidence
-                </h3>
+              <div className="card" style={{ padding: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+                    Jev AI Judgment &amp; Scoring
+                  </h3>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '0.6875rem',
+                      color: '#10b981',
+                      background: 'rgba(16, 185, 129, 0.12)',
+                      padding: '2px 7px',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    Inference: {result.modelDecision.decisionLatencyMs} ms
+                  </span>
+                </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
-                  <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '14px' }}>
+                  <div style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px' }}>
                     <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>SEVERITY SCORE</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: result.wouldAlert ? '#f87171' : '#34d399', marginTop: '2px' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.wouldAlert ? '#f87171' : '#34d399', marginTop: '2px' }}>
                       {result.modelDecision.severityScore === 2 ? '2.40 / 3.0' : result.modelDecision.severityScore === 1 ? '1.45 / 3.0' : '0.40 / 3.0'}
                     </div>
                   </div>
 
-                  <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                  <div style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px' }}>
                     <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>ACTIONABLE PROBABILITY</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#38bdf8', marginTop: '2px' }}>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38bdf8', marginTop: '2px' }}>
                       {(result.modelDecision.probabilityActionable * 100).toFixed(0)}%
                     </div>
                   </div>
 
-                  <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>INFERENCE LATENCY</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>
-                      {result.modelDecision.decisionLatencyMs} ms
+                  <div style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>OWNING TEAM</div>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: '#60a5fa', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {result.modelDecision.owningTeam}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', padding: '12px', background: 'var(--bg-card-subtle)', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', padding: '10px 12px', background: 'var(--bg-card-subtle)', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
                   <strong>Decision Reasoning:</strong> {result.modelDecision.reasoning}
                 </div>
               </div>
 
               {/* Extracted Pattern Code Block */}
-              <div className="card" style={{ padding: '22px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                  <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0 }}>
-                    Extracted Canonical Signature
+              <div className="card" style={{ padding: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <h3 style={{ fontSize: '0.8125rem', fontWeight: 700, margin: 0 }}>
+                    Extracted Universal Signature
                   </h3>
-                  <button onClick={handleCopyPattern} className="btn btn-outline btn-sm">
-                    {copiedPattern ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-                    <span>{copiedPattern ? 'Copied' : 'Copy Pattern'}</span>
+                  <button onClick={handleCopyPattern} className="btn btn-outline btn-sm" style={{ padding: '2px 8px', fontSize: '0.6875rem' }}>
+                    {copiedPattern ? <Check size={11} color="#10b981" /> : <Copy size={11} />}
+                    <span>{copiedPattern ? 'Copied' : 'Copy'}</span>
                   </button>
                 </div>
                 <CodeBlock code={result.pattern} />
               </div>
 
               {/* Slack Alert Replica */}
-              <div className="card" style={{ padding: '22px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <SlackIcon size={16} color="#ecb22e" />
-                  <h3 style={{ fontSize: '0.875rem', fontWeight: 600 }}>Slack Block Kit Preview</h3>
+              <div className="card" style={{ padding: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <SlackIcon size={15} color="#ecb22e" />
+                  <h3 style={{ fontSize: '0.8125rem', fontWeight: 600, margin: 0 }}>
+                    Simulated Slack Block Kit Payload
+                  </h3>
                 </div>
 
                 <div
                   style={{
                     background: 'rgba(74, 21, 75, 0.08)',
                     borderLeft: '4px solid #4a154b',
-                    padding: '14px 16px',
+                    padding: '12px 14px',
                     borderRadius: '6px',
-                    fontSize: '0.8125rem',
-                    fontFamily: 'var(--font-sans)',
+                    fontSize: '0.75rem',
                   }}
                 >
-                  <div style={{ color: result.wouldAlert ? '#f87171' : '#fbbf24', fontWeight: 700, marginBottom: '6px' }}>
-                    [{result.wouldAlert ? 'CRITICAL' : 'BUG'}] {service} ({environment}) — 24x
+                  <div style={{ color: result.wouldAlert ? '#f87171' : '#fbbf24', fontWeight: 700, marginBottom: '4px' }}>
+                    [{result.wouldAlert ? 'CRITICAL' : 'WARNING'}] {service} ({environment}) — 24x
                   </div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginBottom: '8px' }}>
-                    *Project:* LogGate Demo • *Score:* {result.modelDecision.severityScore === 2 ? '2.40/3.0' : '1.45/3.0'}
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.6875rem', marginBottom: '6px' }}>
+                    *Project:* {service} • *Score:* {result.modelDecision.severityScore === 2 ? '2.40/3.0' : '1.45/3.0'}
                   </div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '4px' }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6875rem', background: 'rgba(0,0,0,0.35)', padding: '6px 8px', borderRadius: '4px', wordBreak: 'break-all' }}>
                     {result.pattern.slice(0, 160)}
                   </div>
                 </div>
               </div>
             </>
-          ) : (
-            <div className="card" style={{ padding: '40px', textAlign: 'center' }}>
-              <ShieldCheck size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px auto' }} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Ready to Simulate</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '4px' }}>
-                Pick an incident preset on the left or paste your own raw log lines, then click &quot;Simulate Triage Decision&quot;.
-              </p>
-            </div>
           )}
         </div>
       </div>
