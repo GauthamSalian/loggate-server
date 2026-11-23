@@ -2,27 +2,21 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useLogGate } from '../../context/LogGateContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import type { ActiveTab } from './Sidebar';
 import {
   Shield,
   ChevronDown,
   Check,
   Plus,
-  Zap,
-  Activity,
+  Play,
+  Pause,
   LogOut,
   Sun,
   Moon,
-  Sparkles,
-  AlertTriangle,
-  Play,
-  Pause,
-  Server,
   Layers,
 } from 'lucide-react';
 
 interface NavbarProps {
-  activeTab?: ActiveTab;
+  activeTab?: string;
   onOpenLogin: () => void;
   onGoHome: () => void;
 }
@@ -33,13 +27,8 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
     currentProject,
     setCurrentProject,
     createNewProject,
-    health,
     liveStreaming,
     setLiveStreaming,
-    simulateIncomingBatch,
-    simulateOverloadBurst,
-    toggleModelDegraded,
-    toggleSlackOutage,
   } = useLogGate();
 
   const { user, logout } = useAuth();
@@ -49,12 +38,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [selectedEnv, setSelectedEnv] = useState<'prod' | 'staging'>('prod');
-  const [showSimMenu, setShowSimMenu] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const projDropdownRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
-  const simDropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -64,9 +51,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
       }
       if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
         setShowUserMenu(false);
-      }
-      if (simDropdownRef.current && !simDropdownRef.current.contains(e.target as Node)) {
-        setShowSimMenu(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -85,7 +69,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
     <>
       <header
         style={{
-          height: '58px',
+          height: '54px',
           background: 'var(--bg-surface)',
           borderBottom: '1px solid var(--border-subtle)',
           display: 'flex',
@@ -112,9 +96,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
           >
             <div
               style={{
-                width: '30px',
-                height: '30px',
-                borderRadius: '8px',
+                width: '28px',
+                height: '28px',
+                borderRadius: '6px',
                 background: 'rgba(16, 185, 129, 0.15)',
                 border: '1px solid rgba(16, 185, 129, 0.35)',
                 display: 'flex',
@@ -123,11 +107,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
                 color: '#10b981',
               }}
             >
-              <Shield size={17} />
+              <Shield size={16} />
             </div>
             <span
               style={{
-                fontSize: '0.95rem',
+                fontSize: '0.9rem',
                 fontWeight: 700,
                 letterSpacing: '-0.02em',
                 color: 'var(--text-primary)',
@@ -138,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
           </div>
 
           {/* Breadcrumb Separator */}
-          <span style={{ color: 'var(--border-strong)', fontSize: '1.1rem', fontWeight: 300 }}>/</span>
+          <span style={{ color: 'var(--border-strong)', fontSize: '1rem', fontWeight: 300 }}>/</span>
 
           {/* Project Switcher Dropdown */}
           <div ref={projDropdownRef} style={{ position: 'relative' }}>
@@ -149,7 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '5px 10px',
+                padding: '4px 10px',
                 borderRadius: '6px',
                 fontWeight: 600,
                 fontSize: '0.8125rem',
@@ -210,7 +194,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
                         background: isCurrent ? 'var(--bg-card-hover)' : 'transparent',
                         color: isCurrent ? '#10b981' : 'var(--text-primary)',
                       }}
-                      className="dropdown-item"
                     >
                       <span style={{ fontWeight: isCurrent ? 600 : 400 }}>{proj.name}</span>
                       {isCurrent && <Check size={14} color="#10b981" />}
@@ -257,7 +240,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
           </div>
         </div>
 
-        {/* Right: Telemetry, Sandbox & User Menu */}
+        {/* Right: Telemetry & User Menu */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {/* Uptime Health Pill */}
           <div
@@ -267,123 +250,44 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
               gap: '7px',
               background: 'var(--bg-card-subtle)',
               border: '1px solid var(--border-subtle)',
-              padding: '4px 10px',
+              padding: '3px 9px',
               borderRadius: '9999px',
               fontSize: '0.75rem',
-              fontWeight: 600,
+              fontWeight: 500,
             }}
           >
             <span className="pulse-dot pulse-dot-green" />
             <span style={{ color: 'var(--text-secondary)' }}>99.9% Uptime</span>
           </div>
 
-          {/* Live Feed Toggle */}
+          {/* Live Stream Toggle */}
           <button
             onClick={() => setLiveStreaming(!liveStreaming)}
             className="btn btn-secondary btn-sm"
-            style={{ padding: '4px 9px' }}
+            style={{ padding: '3px 8px', fontSize: '0.75rem' }}
             title={liveStreaming ? 'Pause live stream' : 'Resume live stream'}
           >
             {liveStreaming ? (
               <>
                 <Pause size={12} color="#10b981" />
-                <span style={{ fontSize: '0.75rem' }}>Live</span>
+                <span>Live</span>
               </>
             ) : (
               <>
                 <Play size={12} color="var(--text-muted)" />
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Paused</span>
+                <span style={{ color: 'var(--text-muted)' }}>Paused</span>
               </>
             )}
           </button>
-
-          {/* Resilience / Test Scenarios */}
-          <div ref={simDropdownRef} style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowSimMenu(!showSimMenu)}
-              className="btn btn-secondary btn-sm"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Sparkles size={13} color="#3b82f6" />
-              <span>Scenarios</span>
-              <ChevronDown size={12} />
-            </button>
-
-            {showSimMenu && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '6px',
-                  width: '240px',
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-strong)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: 'var(--shadow-lg)',
-                  zIndex: 100,
-                  padding: '6px',
-                }}
-              >
-                <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--text-muted)', padding: '6px 10px' }}>
-                  Chaos Testing (NFR Resilience)
-                </div>
-                <button
-                  onClick={() => {
-                    toggleModelDegraded();
-                    setShowSimMenu(false);
-                  }}
-                  className="btn btn-outline btn-sm"
-                  style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}
-                >
-                  <AlertTriangle size={13} color="#f59e0b" />
-                  <span>Toggle Jev Latency ({health.modelStatus === 'degraded' ? 'Recover' : 'Degrade'})</span>
-                </button>
-                <button
-                  onClick={() => {
-                    simulateOverloadBurst();
-                    setShowSimMenu(false);
-                  }}
-                  className="btn btn-outline btn-sm"
-                  style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}
-                >
-                  <Server size={13} color="#ef4444" />
-                  <span>Simulate Overload Drop (FR-03)</span>
-                </button>
-                <button
-                  onClick={() => {
-                    toggleSlackOutage();
-                    setShowSimMenu(false);
-                  }}
-                  className="btn btn-outline btn-sm"
-                  style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}
-                >
-                  <Activity size={13} color="#60a5fa" />
-                  <span>Simulate Slack Webhook Outage</span>
-                </button>
-                <button
-                  onClick={() => {
-                    simulateIncomingBatch();
-                    setShowSimMenu(false);
-                  }}
-                  className="btn btn-outline btn-sm"
-                  style={{ width: '100%', justifyContent: 'flex-start', border: 'none' }}
-                >
-                  <Zap size={13} color="#10b981" />
-                  <span>Inject Log Batch Now</span>
-                </button>
-              </div>
-            )}
-          </div>
 
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
             className="btn btn-secondary btn-sm"
-            style={{ width: '32px', height: '32px', padding: 0 }}
+            style={{ width: '30px', height: '30px', padding: 0 }}
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
           >
-            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+            {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
           </button>
 
           {/* User Menu */}
@@ -395,27 +299,27 @@ export const Navbar: React.FC<NavbarProps> = ({ onGoHome }) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '4px 10px',
+                padding: '3px 8px',
               }}
             >
               <div
                 style={{
-                  width: '22px',
-                  height: '22px',
+                  width: '20px',
+                  height: '20px',
                   borderRadius: '50%',
                   background: '#10b981',
                   color: '#0c0d0e',
-                  fontSize: '0.75rem',
+                  fontSize: '0.6875rem',
                   fontWeight: 700,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                {user?.name ? user.name[0].toUpperCase() : 'U'}
+                {user?.name ? user.name[0].toUpperCase() : 'A'}
               </div>
-              <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{user?.name || 'Admin'}</span>
-              <ChevronDown size={12} color="var(--text-muted)" />
+              <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{user?.name || 'Platform Admin'}</span>
+              <ChevronDown size={11} color="var(--text-muted)" />
             </button>
 
             {showUserMenu && (

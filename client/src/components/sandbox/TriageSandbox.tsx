@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
+  Copy,
+  Check,
 } from 'lucide-react';
 
 export const TriageSandbox: React.FC = () => {
@@ -24,8 +26,17 @@ export const TriageSandbox: React.FC = () => {
   const [host, setHost] = useState<string>(SANDBOX_PRESETS[0].host);
 
   const [evaluating, setEvaluating] = useState<boolean>(false);
-  const [result, setResult] = useState<SandboxEvaluationResult | null>(null);
+  const [result, setResult] = useState<SandboxEvaluationResult | null>(() => {
+    // Pre-evaluate first preset so right pane isn't blank on initial load
+    return evaluateSandbox(
+      SANDBOX_PRESETS[0].rawLines,
+      SANDBOX_PRESETS[0].service,
+      SANDBOX_PRESETS[0].environment,
+      SANDBOX_PRESETS[0].host
+    );
+  });
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [copiedPattern, setCopiedPattern] = useState(false);
 
   const handleSelectPreset = (presetId: string) => {
     setSelectedPresetId(presetId);
@@ -36,366 +47,314 @@ export const TriageSandbox: React.FC = () => {
       setEnvironment(p.environment);
       setHost(p.host);
       setValidationError(null);
+      // Auto-evaluate preset
+      const evalRes = evaluateSandbox(p.rawLines, p.service, p.environment, p.host);
+      setResult(evalRes);
     }
   };
 
   const handleRunEvaluation = () => {
     if (!rawInput.trim()) {
-      setValidationError('Please enter at least one log line or choose a realistic preset (Key flow 4.4).');
-      setResult(null);
+      setValidationError('Please enter at least one log line or choose a preset.');
       return;
     }
 
     setValidationError(null);
     setEvaluating(true);
 
-    // Simulate fast 70ms Jev model inference
     setTimeout(() => {
       const evalResult = evaluateSandbox(rawInput, service, environment, host);
       setResult(evalResult);
       setEvaluating(false);
-    }, 120);
+    }, 100);
+  };
+
+  const handleCopyPattern = () => {
+    if (!result) return;
+    navigator.clipboard.writeText(result.pattern);
+    setCopiedPattern(true);
+    setTimeout(() => setCopiedPattern(false), 2000);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header */}
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div
             style={{
-              width: '36px',
-              height: '36px',
+              width: '32px',
+              height: '32px',
               borderRadius: '8px',
-              background: 'rgba(59, 130, 246, 0.15)',
+              background: 'rgba(16, 185, 129, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#60a5fa',
+              color: '#10b981',
             }}
           >
-            <Terminal size={20} />
+            <Terminal size={18} />
           </div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
-            Interactive Triage Sandbox (FR-25, Key flow 4.4)
-          </h2>
+          <h1 style={{ fontSize: '1.4rem', fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>
+            Interactive Triage Sandbox
+          </h1>
         </div>
-        <p style={{ color: 'var(--text-secondary)', marginTop: '6px', fontSize: '0.875rem' }}>
-          Test and preview how raw logs are parsed, masked, and judged by the Jev model with{' '}
-          <strong>guaranteed zero alert dispatch</strong> to the production messaging platform.
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '4px' }}>
+          Safe testing ground to simulate token masking and Jev model inference with guaranteed zero Slack alert dispatch.
         </p>
       </div>
 
-      {/* Safety Guarantee Banner */}
+      {/* Supabase-Style 2-Column Split Pane */}
       <div
         style={{
-          background: 'rgba(16, 185, 129, 0.08)',
-          border: '1px solid rgba(16, 185, 129, 0.3)',
-          borderRadius: '10px',
-          padding: '12px 18px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          fontSize: '0.875rem',
-          color: '#34d399',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
+          gap: '24px',
+          alignItems: 'flex-start',
         }}
       >
-        <ShieldCheck size={20} style={{ flexShrink: 0 }} />
-        <div>
-          <strong>Safe Testing Isolation Active (FR-25):</strong> All evaluations execute the authentic pattern
-          extraction and Jev scoring pipelines, but output is contained entirely on this screen. Real engineers will
-          never be paged or alerted.
-        </div>
-      </div>
-
-      {/* Presets and Input Form */}
-      <div className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* Preset Selector */}
-        <div>
-          <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
-            Production Incident Presets
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '10px' }}>
-            {SANDBOX_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                onClick={() => handleSelectPreset(preset.id)}
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  border: selectedPresetId === preset.id ? '2px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                  background: selectedPresetId === preset.id ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-input)',
-                  color: selectedPresetId === preset.id ? '#ffffff' : 'var(--text-secondary)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: selectedPresetId === preset.id ? '#60a5fa' : 'var(--text-primary)' }}>
-                  {preset.name}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  {preset.description}
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Configuration Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+        {/* ===================== LEFT COLUMN: INPUT PANEL ===================== */}
+        <div className="card" style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* Quick Presets */}
           <div>
-            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-              Service Name
+            <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '8px' }}>
+              Incident Presets
             </label>
-            <input
-              type="text"
-              className="input-field"
-              value={service}
-              onChange={(e) => setService(e.target.value)}
-              placeholder="e.g. payment-service"
-            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '8px' }}>
+              {SANDBOX_PRESETS.map((preset) => {
+                const isSelected = selectedPresetId === preset.id;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => handleSelectPreset(preset.id)}
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: '6px',
+                      border: isSelected ? '1px solid #10b981' : '1px solid var(--border-subtle)',
+                      background: isSelected ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-input)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: isSelected ? '#10b981' : 'var(--text-primary)' }}>
+                      {preset.name}
+                    </div>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {preset.service}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div>
-            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-              Host Name
-            </label>
-            <input
-              type="text"
-              className="input-field"
-              value={host}
-              onChange={(e) => setHost(e.target.value)}
-              placeholder="e.g. prod-node-01"
-            />
-          </div>
-
-          <div>
-            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)', display: 'block', marginBottom: '6px' }}>
-              Environment
-            </label>
-            <select
-              className="input-field"
-              value={environment}
-              onChange={(e) => setEnvironment(e.target.value as 'production' | 'staging' | 'canary')}
-            >
-              <option value="production">Production</option>
-              <option value="staging">Staging</option>
-              <option value="canary">Canary</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Textarea for log lines */}
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <label style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-              Raw Log Lines or Reduced Records (HM-03, FR-25)
-            </label>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Paste one or multiple lines
-            </span>
-          </div>
-          <textarea
-            className="input-field"
-            rows={6}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', resize: 'vertical' }}
-            value={rawInput}
-            onChange={(e) => {
-              setRawInput(e.target.value);
-              setSelectedPresetId('');
-            }}
-            placeholder="Paste raw log lines with timestamps, stacktraces, or error messages..."
-          />
-        </div>
-
-        {validationError && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: '6px',
-              background: 'var(--severity-high-bg)',
-              border: '1px solid var(--severity-high-border)',
-              color: 'var(--severity-high-text)',
-              fontSize: '0.8125rem',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            <AlertCircle size={16} />
-            <span>{validationError}</span>
-          </div>
-        )}
-
-        {/* Action Button */}
-        <div>
-          <button
-            onClick={handleRunEvaluation}
-            disabled={evaluating}
-            className="btn btn-primary"
-            style={{ minWidth: '220px' }}
-          >
-            {evaluating ? (
-              <>
-                <Sparkles size={16} className="animate-spin" />
-                <span>Running Jev Model Triage...</span>
-              </>
-            ) : (
-              <>
-                <Play size={16} />
-                <span>Run Triage Evaluation (FR-25)</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Evaluation Results (FR-25) */}
-      {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '14px 20px',
-              borderRadius: '10px',
-              background: result.wouldAlert ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-              border: result.wouldAlert ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {result.wouldAlert ? (
-                <AlertCircle size={22} color="#f87171" />
-              ) : (
-                <CheckCircle2 size={22} color="#34d399" />
-              )}
-              <div>
-                <strong style={{ fontSize: '1rem', color: result.wouldAlert ? '#f87171' : '#34d399' }}>
-                  {result.wouldAlert ? 'SIMULATION VERDICT: WOULD ALERT TO SLACK' : 'SIMULATION VERDICT: SUPPRESSED (NOISE)'}
-                </strong>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                  {result.verdictReason}
-                </div>
-              </div>
+          {/* Config: Service & Env */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>
+                Service Name
+              </label>
+              <input
+                type="text"
+                className="input-field"
+                value={service}
+                onChange={(e) => setService(e.target.value)}
+                placeholder="e.g. auth-service"
+              />
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <SeverityBadge severity={result.modelDecision.severityLabel} />
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: '0.75rem',
-                  color: 'var(--text-muted)',
-                  background: 'rgba(0,0,0,0.3)',
-                  padding: '3px 8px',
-                  borderRadius: '4px',
-                }}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, marginBottom: '4px', color: 'var(--text-secondary)' }}>
+                Environment
+              </label>
+              <select
+                className="input-field"
+                value={environment}
+                onChange={(e) => setEnvironment(e.target.value as 'production' | 'staging' | 'canary')}
               >
-                Inference: {result.modelDecision.decisionLatencyMs}ms
+                <option value="production">production</option>
+                <option value="staging">staging</option>
+                <option value="canary">canary</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Raw Log Textarea */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                Raw Log Lines or Stacktrace
+              </label>
+              <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>
+                Paste lines with timestamps, IPs, UUIDs
               </span>
             </div>
-          </div>
-
-          {/* Pipeline stages */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-            {/* Step 1: Extracted Pattern */}
-            <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Stage 1: Extracted Pattern (HM-03, HM-04)
-              </div>
-              <CodeBlock code={result.pattern} />
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Dynamic identifiers, timestamps, ports, and tokens replaced with canonical placeholders.
-              </div>
-            </div>
-
-            {/* Step 2: Jev Model Judgment */}
-            <div className="card" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                Stage 2: Model Judgment (FR-07, FR-08)
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
-                <div style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px' }}>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>ACTIONABLE PROBABILITY</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#38bdf8' }}>
-                    {(result.modelDecision.probabilityActionable * 100).toFixed(0)}%
-                  </div>
-                </div>
-                <div style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px' }}>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>OWNING TEAM</div>
-                  <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#60a5fa', marginTop: '4px' }}>
-                    {result.modelDecision.owningTeam}
-                  </div>
-                </div>
-              </div>
-              <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                <strong>Triage Reasoning:</strong> {result.modelDecision.reasoning}
-              </div>
-            </div>
-          </div>
-
-          {/* Slack Alert Payload Preview (FR-11) */}
-          <div className="card" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
-              <SlackIcon size={18} color="#ecb22e" />
-              <h3 style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                Slack Alert Preview (All 8 items per FR-11)
-              </h3>
-            </div>
-
-            <div
-              style={{
-                background: 'rgba(74, 21, 75, 0.1)',
-                borderLeft: '4px solid #4a154b',
-                padding: '16px',
-                borderRadius: '6px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: '12px',
-                fontSize: '0.8125rem',
+            <textarea
+              className="input-field"
+              rows={8}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', lineHeight: '1.5', resize: 'vertical' }}
+              value={rawInput}
+              onChange={(e) => {
+                setRawInput(e.target.value);
+                setSelectedPresetId('');
               }}
-            >
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Incident:</span>{' '}
-                <strong>{result.slackPayload.incidentNumber}</strong>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Service:</span>{' '}
-                <strong>{result.slackPayload.service}</strong>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Rate:</span> {result.slackPayload.errorRate}
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Severity:</span>{' '}
-                <span style={{ color: '#f87171', fontWeight: 600 }}>{result.slackPayload.severity}</span>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Prob Actionable:</span>{' '}
-                {result.slackPayload.probabilityActionable}
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Owning Team:</span>{' '}
-                <strong style={{ color: '#60a5fa' }}>{result.slackPayload.owningTeam}</strong>
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Pattern:</span>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', marginTop: '2px' }}>
-                  {result.slackPayload.errorPattern}
-                </div>
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Incident URL:</span>{' '}
-                <span style={{ color: '#3b82f6', textDecoration: 'underline' }}>
-                  {result.slackPayload.incidentDetailUrl}
-                </span>
-              </div>
+              placeholder="Paste raw log lines..."
+            />
+          </div>
+
+          {validationError && (
+            <div style={{ padding: '8px 12px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', fontSize: '0.75rem' }}>
+              {validationError}
             </div>
+          )}
+
+          {/* Primary CTA Button */}
+          <div>
+            <button
+              onClick={handleRunEvaluation}
+              disabled={evaluating}
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '10px' }}
+            >
+              {evaluating ? (
+                <>
+                  <Sparkles size={15} />
+                  <span>Evaluating with Jev Model...</span>
+                </>
+              ) : (
+                <>
+                  <Play size={15} />
+                  <span>Simulate Triage Decision</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
-      )}
+
+        {/* ===================== RIGHT COLUMN: DECISION OUTPUT PANEL ===================== */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {result ? (
+            <>
+              {/* Verdict Banner */}
+              <div
+                style={{
+                  padding: '16px 20px',
+                  borderRadius: 'var(--radius-lg)',
+                  background: result.wouldAlert ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                  border: result.wouldAlert ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {result.wouldAlert ? (
+                    <AlertCircle size={22} color="#f87171" />
+                  ) : (
+                    <CheckCircle2 size={22} color="#34d399" />
+                  )}
+                  <div>
+                    <strong style={{ fontSize: '0.95rem', color: result.wouldAlert ? '#f87171' : '#34d399' }}>
+                      {result.wouldAlert ? 'VERDICT: WOULD ALERT SLACK' : 'VERDICT: SUPPRESSED AS NOISE'}
+                    </strong>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                      {result.verdictReason}
+                    </div>
+                  </div>
+                </div>
+
+                <SeverityBadge severity={result.modelDecision.severityLabel} />
+              </div>
+
+              {/* AI Scoring Breakdown Card */}
+              <div className="card" style={{ padding: '22px' }}>
+                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, margin: 0, marginBottom: '14px' }}>
+                  Jev AI Judgment &amp; Confidence
+                </h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '16px' }}>
+                  <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>SEVERITY SCORE</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: result.wouldAlert ? '#f87171' : '#34d399', marginTop: '2px' }}>
+                      {result.modelDecision.severityScore === 2 ? '2.40 / 3.0' : result.modelDecision.severityScore === 1 ? '1.45 / 3.0' : '0.40 / 3.0'}
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>ACTIONABLE PROBABILITY</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#38bdf8', marginTop: '2px' }}>
+                      {(result.modelDecision.probabilityActionable * 100).toFixed(0)}%
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>INFERENCE LATENCY</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>
+                      {result.modelDecision.decisionLatencyMs} ms
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', padding: '12px', background: 'var(--bg-card-subtle)', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                  <strong>Decision Reasoning:</strong> {result.modelDecision.reasoning}
+                </div>
+              </div>
+
+              {/* Extracted Pattern Code Block */}
+              <div className="card" style={{ padding: '22px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0 }}>
+                    Extracted Canonical Signature
+                  </h3>
+                  <button onClick={handleCopyPattern} className="btn btn-outline btn-sm">
+                    {copiedPattern ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+                    <span>{copiedPattern ? 'Copied' : 'Copy Pattern'}</span>
+                  </button>
+                </div>
+                <CodeBlock code={result.pattern} />
+              </div>
+
+              {/* Slack Alert Replica */}
+              <div className="card" style={{ padding: '22px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                  <SlackIcon size={16} color="#ecb22e" />
+                  <h3 style={{ fontSize: '0.875rem', fontWeight: 600 }}>Slack Block Kit Preview</h3>
+                </div>
+
+                <div
+                  style={{
+                    background: 'rgba(74, 21, 75, 0.08)',
+                    borderLeft: '4px solid #4a154b',
+                    padding: '14px 16px',
+                    borderRadius: '6px',
+                    fontSize: '0.8125rem',
+                    fontFamily: 'var(--font-sans)',
+                  }}
+                >
+                  <div style={{ color: result.wouldAlert ? '#f87171' : '#fbbf24', fontWeight: 700, marginBottom: '6px' }}>
+                    [{result.wouldAlert ? 'CRITICAL' : 'BUG'}] {service} ({environment}) — 24x
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginBottom: '8px' }}>
+                    *Project:* LogGate Demo • *Score:* {result.modelDecision.severityScore === 2 ? '2.40/3.0' : '1.45/3.0'}
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', background: 'rgba(0,0,0,0.3)', padding: '8px', borderRadius: '4px' }}>
+                    {result.pattern.slice(0, 160)}
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="card" style={{ padding: '40px', textAlign: 'center' }}>
+              <ShieldCheck size={36} color="var(--text-muted)" style={{ margin: '0 auto 12px auto' }} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 600 }}>Ready to Simulate</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem', marginTop: '4px' }}>
+                Pick an incident preset on the left or paste your own raw log lines, then click &quot;Simulate Triage Decision&quot;.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
