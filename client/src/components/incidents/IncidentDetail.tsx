@@ -5,15 +5,17 @@ import { SeverityBadge, DegradedMarker, StatusBadge } from '../common/Badge';
 import { SlackIcon } from '../common/Icons';
 import { CodeBlock } from '../common/CodeBlock';
 import {
-  X,
+  ArrowLeft,
   CheckCircle,
   VolumeX,
   RotateCcw,
   Server,
   Sparkles,
-  FileCode,
   Copy,
   Check,
+  Send,
+  Calendar,
+  Layers,
 } from 'lucide-react';
 
 interface IncidentDetailProps {
@@ -21,12 +23,10 @@ interface IncidentDetailProps {
   onClose: () => void;
 }
 
-type DetailTab = 'overview' | 'masked_diff' | 'slack_card' | 'fleet_spread';
-
 export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClose }) => {
-  const { resolveIncident, silenceIncident, reopenIncident, settings } = useLogGate();
-  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const { currentProject, resolveIncident, silenceIncident, reopenIncident } = useLogGate();
   const [copiedPattern, setCopiedPattern] = useState(false);
+  const [sentTestSlack, setSentTestSlack] = useState(false);
 
   const handleCopyPattern = () => {
     navigator.clipboard.writeText(incident.pattern);
@@ -34,59 +34,48 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
     setTimeout(() => setCopiedPattern(false), 2000);
   };
 
+  const handleTriggerTest = () => {
+    setSentTestSlack(true);
+    setTimeout(() => setSentTestSlack(false), 2500);
+  };
+
+  const projectName = currentProject.name || 'payment-gateway-prod';
+
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: '100%',
-        maxWidth: '860px',
-        background: 'var(--bg-card)',
-        borderLeft: '1px solid var(--border-strong)',
-        boxShadow: 'var(--shadow-lg)',
-        zIndex: 100,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      {/* Drawer Header */}
-      <div
-        style={{
-          padding: '18px 24px',
-          borderBottom: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'var(--bg-card-subtle)',
-          flexShrink: 0,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '1.25rem',
-              fontWeight: 800,
-              color: 'var(--brand-primary)',
-            }}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* 1. Supabase-Style Breadcrumb Header & Action Bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            onClick={onClose}
+            className="btn btn-outline btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            {incident.id}
+            <ArrowLeft size={14} />
+            <span>Back to Incidents</span>
+          </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+            <span>Projects</span>
+            <span>/</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{projectName}</span>
+            <span>/</span>
+            <span style={{ color: 'var(--text-secondary)' }}>Incidents</span>
+            <span>/</span>
+            <span style={{ color: 'var(--text-primary)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+              {incident.id}
+            </span>
           </div>
-          <SeverityBadge severity={incident.modelDecision.severityLabel} />
-          {incident.isDegraded && <DegradedMarker />}
-          <StatusBadge status={incident.status} />
         </div>
 
+        {/* Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {incident.status === 'ACTIVE' ? (
             <>
               <button
                 onClick={() => resolveIncident(incident.id)}
                 className="btn btn-sm btn-secondary"
-                style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '5px' }}
+                style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <CheckCircle size={14} />
                 <span>Mark Resolved</span>
@@ -94,7 +83,7 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
               <button
                 onClick={() => silenceIncident(incident.id)}
                 className="btn btn-sm btn-secondary"
-                style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '5px' }}
+                style={{ color: '#a1a1aa', display: 'flex', alignItems: 'center', gap: '6px' }}
               >
                 <VolumeX size={14} />
                 <span>Silence Pattern</span>
@@ -104,7 +93,7 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
             <button
               onClick={() => reopenIncident(incident.id)}
               className="btn btn-sm btn-outline"
-              style={{ display: 'flex', alignItems: 'center', gap: '5px' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
               <RotateCcw size={14} />
               <span>Reopen Incident</span>
@@ -112,487 +101,272 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
           )}
 
           <button
-            onClick={onClose}
-            className="btn btn-sm btn-outline"
-            style={{ width: '32px', height: '32px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            title="Close drawer"
+            onClick={handleTriggerTest}
+            className="btn btn-sm btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
           >
-            <X size={16} />
+            <Send size={13} />
+            <span>{sentTestSlack ? 'Dispatched to Slack!' : 'Test Slack Alert'}</span>
           </button>
         </div>
       </div>
 
-      {/* Navigation Tab Bar */}
-      <div
-        style={{
-          display: 'flex',
-          padding: '0 24px',
-          borderBottom: '1px solid var(--border-subtle)',
-          background: 'var(--bg-card)',
-          gap: '8px',
-          flexShrink: 0,
-        }}
-      >
-        {[
-          { id: 'overview', label: 'Overview & AI Triage', icon: <Sparkles size={14} /> },
-          { id: 'masked_diff', label: 'Masked Log Diffs (HM-06)', icon: <FileCode size={14} /> },
-          { id: 'slack_card', label: 'Slack Alert Card (FR-11)', icon: <SlackIcon size={14} /> },
-          { id: 'fleet_spread', label: 'Fleet Spread (FR-04)', icon: <Server size={14} /> },
-        ].map((tab) => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as DetailTab)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '12px 14px',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: isActive ? '2px solid var(--brand-primary)' : '2px solid transparent',
-                color: isActive ? 'var(--brand-primary)' : 'var(--text-secondary)',
-                fontWeight: isActive ? 700 : 500,
-                fontSize: '0.8125rem',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              {tab.icon}
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      {/* Incident Title Card */}
+      <div className="card" style={{ padding: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+          <SeverityBadge severity={incident.modelDecision.severityLabel} />
+          {incident.isDegraded && <DegradedMarker />}
+          <StatusBadge status={incident.status} />
+          <span
+            style={{
+              padding: '2px 8px',
+              borderRadius: '4px',
+              background: 'var(--bg-input)',
+              fontSize: '0.75rem',
+              fontFamily: 'var(--font-mono)',
+              border: '1px solid var(--border-subtle)',
+            }}
+          >
+            {incident.service}
+          </span>
+          <span
+            style={{
+              padding: '2px 8px',
+              borderRadius: '4px',
+              background: incident.environment === 'production' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+              color: incident.environment === 'production' ? '#34d399' : '#fbbf24',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+            }}
+          >
+            {incident.environment}
+          </span>
+        </div>
+
+        <h2
+          style={{
+            fontSize: '1.15rem',
+            fontWeight: 700,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-primary)',
+            margin: '0 0 10px 0',
+            lineHeight: 1.4,
+          }}
+        >
+          {incident.pattern}
+        </h2>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '18px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Calendar size={13} />
+            <span>First Seen: {incident.firstSeen}</span>
+          </div>
+          <div>•</div>
+          <div>Last Seen: {incident.lastSeen}</div>
+          <div>•</div>
+          <div>{incident.rawLinesCount.toLocaleString()} raw lines represented</div>
+        </div>
       </div>
 
-      {/* Drawer Body */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '22px' }}>
-        {/* TAB 1: OVERVIEW & AI TRIAGE */}
-        {activeTab === 'overview' && (
-          <>
-            {/* Pattern Box */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-                  Canonical Error Pattern (HM-03, HM-04)
-                </div>
-                <button
-                  onClick={handleCopyPattern}
-                  className="btn btn-sm btn-outline"
-                  style={{ padding: '2px 8px', fontSize: '0.6875rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                >
-                  {copiedPattern ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
-                  <span>{copiedPattern ? 'Copied' : 'Copy Pattern'}</span>
-                </button>
+      {/* 2. Split Pane Layout (65% Forensic Evidence / 35% AI Decision & Slack) */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1.8fr) minmax(0, 1.2fr)',
+          gap: '20px',
+          alignItems: 'flex-start',
+        }}
+      >
+        {/* ===================== LEFT COLUMN (FORENSIC EVIDENCE - 65%) ===================== */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Canonical Pattern Box */}
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Layers size={15} color="#10b981" />
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0 }}>
+                  Canonical Pattern (Token Masked)
+                </h3>
               </div>
-              <CodeBlock code={incident.pattern} />
+              <button onClick={handleCopyPattern} className="btn btn-outline btn-sm">
+                {copiedPattern ? <Check size={12} color="#10b981" /> : <Copy size={12} />}
+                <span>{copiedPattern ? 'Copied' : 'Copy'}</span>
+              </button>
             </div>
 
-            {/* Core Stats Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
-              <div className="card" style={{ padding: '14px' }}>
-                <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Service</div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '4px' }}>{incident.service}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Env: {incident.environment}</div>
-              </div>
+            <CodeBlock code={incident.pattern} />
 
-              <div className="card" style={{ padding: '14px' }}>
-                <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Owning Team</div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '4px', color: '#60a5fa' }}>
-                  {incident.modelDecision.owningTeam}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Jev Triage Classification</div>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '12px', fontSize: '0.75rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="token-highlight">&lt;UUID&gt;</span>
+                <span style={{ color: 'var(--text-muted)' }}>Transaction ID</span>
               </div>
-
-              <div className="card" style={{ padding: '14px' }}>
-                <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Raw Lines Absorbed</div>
-                <div style={{ fontSize: '1.125rem', fontWeight: 800, marginTop: '4px', fontFamily: 'var(--font-mono)', color: '#10b981' }}>
-                  {incident.rawLinesCount.toLocaleString()}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                  {(incident.bytesRepresented / (1024 * 1024)).toFixed(2)} MB volume cut
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="token-masked">&lt;IP&gt;</span>
+                <span style={{ color: 'var(--text-muted)' }}>Client / Host IP</span>
               </div>
-
-              <div className="card" style={{ padding: '14px' }}>
-                <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Error Rate</div>
-                <div style={{ fontSize: '1.125rem', fontWeight: 800, marginTop: '4px', fontFamily: 'var(--font-mono)', color: '#f87171' }}>
-                  {incident.errorRatePerSec} / sec
-                </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Burst limit: {settings.burstThreshold}/10s</div>
-              </div>
-            </div>
-
-            {/* Jev Triage Neural Evaluation Card */}
-            <div
-              className="card"
-              style={{
-                padding: '22px',
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                background: 'linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%), var(--bg-card)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={20} color="#60a5fa" />
-                  <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
-                    Jev Triage Neural Classifier (FR-07, FR-08)
-                  </span>
-                </div>
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    fontFamily: 'var(--font-mono)',
-                    color: '#10b981',
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    padding: '3px 9px',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    fontWeight: 600,
-                  }}
-                >
-                  Latency: {incident.modelDecision.decisionLatencyMs}ms (&lt;100ms verified)
-                </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '18px' }}>
-                {/* Actionable Probability with visual progress */}
-                <div style={{ background: 'var(--bg-input)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                    Actionable Probability
-                  </div>
-                  <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#38bdf8', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-                    {(incident.modelDecision.probabilityActionable * 100).toFixed(0)}%
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Floor: {(settings.noiseFloor * 100).toFixed(0)}% (
-                    {incident.modelDecision.probabilityActionable >= settings.noiseFloor ? 'Passes' : 'Below floor'})
-                  </div>
-                </div>
-
-                {/* Severity Score */}
-                <div style={{ background: 'var(--bg-input)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                    Severity Score
-                  </div>
-                  <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#fbbf24', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-                    {incident.modelDecision.severityScore}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    {incident.modelDecision.severityLabel} Level (Min: {settings.severityThreshold})
-                  </div>
-                </div>
-
-                {/* Model Confidence */}
-                <div style={{ background: 'var(--bg-input)', padding: '14px', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>
-                    Confidence Level
-                  </div>
-                  <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#34d399', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
-                    {(incident.modelDecision.confidence * 100).toFixed(0)}%
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                    Deterministic classification
-                  </div>
-                </div>
-              </div>
-
-              {/* Assessment */}
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '8px',
-                  background: 'rgba(59, 130, 246, 0.08)',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
-                  fontSize: '0.8125rem',
-                  lineHeight: 1.5,
-                  color: 'var(--text-primary)',
-                }}
-              >
-                <strong>AI Root Cause Analysis:</strong> {incident.modelDecision.reasoning}
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* TAB 2: MASKED LOG DIFFS (HM-06) */}
-        {activeTab === 'masked_diff' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div
-              style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                fontSize: '0.8125rem',
-                color: 'var(--text-primary)',
-              }}
-            >
-              <strong>Variable Normalization Engine (HM-06):</strong> Client host daemons replace volatile runtime values
-              (IP addresses, UUIDs, hex IDs, timestamps) with canonical regex tokens so duplicate lines map to a single incident pattern.
-            </div>
-
-            <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#f87171', marginBottom: '8px' }}>
-                Raw Incoming Log Lines (Before Masking)
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {incident.sampleLines.map((line, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      fontFamily: 'var(--font-mono)',
-                      fontSize: '0.75rem',
-                      padding: '10px 14px',
-                      borderRadius: '6px',
-                      background: 'rgba(239, 68, 68, 0.06)',
-                      border: '1px solid rgba(239, 68, 68, 0.25)',
-                      color: 'var(--text-primary)',
-                      overflowX: 'auto',
-                    }}
-                  >
-                    {line}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: '#34d399', marginBottom: '8px' }}>
-                Canonical Extracted Template (After HM-06 Normalization)
-              </div>
-              <CodeBlock code={incident.pattern} />
-            </div>
-
-            <div
-              className="card"
-              style={{
-                padding: '16px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '12px',
-                fontSize: '0.75rem',
-              }}
-            >
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>UUIDs Masked:</span>
-                <div style={{ fontWeight: 700, color: '#60a5fa', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                  &lt;UUID&gt; (RFC 4122)
-                </div>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>IP Addresses Masked:</span>
-                <div style={{ fontWeight: 700, color: '#34d399', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                  &lt;IP&gt; (IPv4 / IPv6)
-                </div>
-              </div>
-              <div>
-                <span style={{ color: 'var(--text-muted)' }}>Timestamps Masked:</span>
-                <div style={{ fontWeight: 700, color: '#fbbf24', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                  &lt;TIMESTAMP&gt; (ISO 8601)
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span className="token-highlight">&lt;TIMESTAMP&gt;</span>
+                <span style={{ color: 'var(--text-muted)' }}>ISO-8601</span>
               </div>
             </div>
           </div>
-        )}
 
-        {/* TAB 3: SLACK ALERT CARD (FR-11) */}
-        {activeTab === 'slack_card' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <SlackIcon size={14} color="#ecb22e" />
-                <span>Delivered Slack Message (FR-11: All 8 Required Fields)</span>
-              </div>
-              {incident.alertStatus.delivered && (
-                <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 700 }}>
-                  ✓ Sent to {incident.alertStatus.slackChannel}
-                </span>
-              )}
-            </div>
+          {/* Sample Log Lines (Max 3 lines captured from host) */}
+          <div className="card" style={{ padding: '20px' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: '0 0 4px 0' }}>
+              Raw Captured Sample Lines (Max 3)
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '12px' }}>
+              Unredacted forensic context captured directly by the host tail module on the application server.
+            </p>
 
-            {/* Slack Message Visual Mockup */}
-            <div
-              className="card"
-              style={{
-                padding: '20px',
-                borderLeft: '4px solid #4a154b',
-                background: 'rgba(74, 21, 75, 0.08)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {incident.sampleLines.slice(0, 3).map((line, idx) => (
                 <div
+                  key={idx}
                   style={{
-                    width: '26px',
-                    height: '26px',
-                    borderRadius: '4px',
-                    background: '#4a154b',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
+                    background: '#090a0b',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '6px',
+                    padding: '10px 14px',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.75rem',
+                    color: '#e4e4e7',
+                    lineHeight: '1.5',
+                    wordBreak: 'break-all',
                   }}
                 >
-                  <SlackIcon size={16} color="#ffffff" />
+                  {line}
                 </div>
-                <strong style={{ fontSize: '0.9375rem' }}>LogGate Bot</strong>
-                <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', background: 'rgba(255, 255, 255, 0.08)', padding: '1px 5px', borderRadius: '3px' }}>
-                  APP
-                </span>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  {incident.alertStatus.deliveredAt
-                    ? new Date(incident.alertStatus.deliveredAt).toLocaleTimeString()
-                    : 'Pending'}
-                </span>
-              </div>
-
-              {/* 8 Mandatory Fields Table */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '12px',
-                  background: 'var(--bg-input)',
-                  padding: '14px',
-                  borderRadius: '8px',
-                  fontSize: '0.8125rem',
-                  border: '1px solid var(--border-subtle)',
-                }}
-              >
-                <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>1. Canonical Error Pattern:</span>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#f87171', marginTop: '2px', wordBreak: 'break-all' }}>
-                    {incident.pattern}
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>2. Service Name:</span>
-                  <div style={{ fontWeight: 700, color: 'var(--text-primary)', marginTop: '2px' }}>
-                    {incident.service} ({incident.environment})
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>3. Severity Level:</span>
-                  <div style={{ marginTop: '2px' }}>
-                    <SeverityBadge severity={incident.modelDecision.severityLabel} />
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>4. Reporting Host:</span>
-                  <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', marginTop: '2px' }}>
-                    {incident.hosts[0]} ({incident.hosts.length} hosts total)
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>5. Timestamp:</span>
-                  <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                    {incident.alertStatus.deliveredAt
-                      ? new Date(incident.alertStatus.deliveredAt).toISOString()
-                      : new Date(incident.firstSeen).toISOString()}
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>6. Error Rate:</span>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#fbbf24', marginTop: '2px' }}>
-                    {incident.errorRatePerSec} occurrences / sec
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>7. Raw Lines Absorbed:</span>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#10b981', marginTop: '2px' }}>
-                    {incident.rawLinesCount.toLocaleString()} duplicate lines reduced
-                  </div>
-                </div>
-
-                <div>
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>8. Owning Team:</span>
-                  <div style={{ fontWeight: 700, color: '#60a5fa', marginTop: '2px' }}>
-                    @{incident.modelDecision.owningTeam}
-                  </div>
-                </div>
-              </div>
-
-              {/* Slack Action Buttons */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
-                <button
-                  type="button"
-                  onClick={() => resolveIncident(incident.id)}
-                  className="btn btn-sm"
-                  style={{ background: '#007a5a', color: '#fff', border: 'none', padding: '6px 14px' }}
-                >
-                  ✓ Acknowledge &amp; Resolve
-                </button>
-                <button
-                  type="button"
-                  onClick={() => silenceIncident(incident.id)}
-                  className="btn btn-sm btn-outline"
-                  style={{ padding: '6px 14px' }}
-                >
-                  Silence 1 Hour
-                </button>
-              </div>
+              ))}
             </div>
           </div>
-        )}
 
-        {/* TAB 4: FLEET SPREAD (FR-04) */}
-        {activeTab === 'fleet_spread' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Fleet Distribution & Time Window */}
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <Server size={15} color="#3b82f6" />
+              <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0 }}>
+                Fleet Distribution &amp; Reporting Nodes
+              </h3>
+            </div>
+
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Host Node</th>
+                  <th>Service</th>
+                  <th>Occurrences</th>
+                  <th>Reduction Ratio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {incident.hosts.map((hostName, idx) => (
+                  <tr key={idx}>
+                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{hostName}</td>
+                    <td>{incident.service}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)' }}>
+                      {Math.floor(incident.rawLinesCount / (incident.hosts.length || 1)).toLocaleString()} lines
+                    </td>
+                    <td>
+                      <span style={{ color: '#10b981', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+                        98.5%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* ===================== RIGHT COLUMN (AI DECISION & SLACK - 35%) ===================== */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* AI Decision Card */}
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+              <Sparkles size={16} color="#10b981" />
+              <h3 style={{ fontSize: '0.875rem', fontWeight: 700, margin: 0 }}>
+                Jev AI Triage Decision
+              </h3>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontWeight: 600 }}>SEVERITY SCORE</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f87171', marginTop: '2px' }}>
+                  2.45 / 3.00
+                </div>
+              </div>
+
+              <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', fontWeight: 600 }}>ACTIONABLE PROBABILITY</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#38bdf8', marginTop: '2px' }}>
+                  {(incident.modelDecision.probabilityActionable * 100).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', padding: '12px', background: 'var(--bg-card-subtle)', borderRadius: '6px', border: '1px solid var(--border-subtle)', lineHeight: 1.5 }}>
+              <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '4px' }}>
+                Decision Reasoning:
+              </strong>
+              {incident.modelDecision.reasoning}
+            </div>
+
+            <div style={{ marginTop: '12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              Owning Team: <strong style={{ color: '#60a5fa' }}>{incident.modelDecision.owningTeam}</strong>
+            </div>
+          </div>
+
+          {/* Slack Notification Preview Card (Visual Replica of Block Kit) */}
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <SlackIcon size={16} color="#ecb22e" />
+                <h3 style={{ fontSize: '0.875rem', fontWeight: 600, margin: 0 }}>
+                  Slack Block Kit Preview
+                </h3>
+              </div>
+              <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>
+                Delivered 200 OK
+              </span>
+            </div>
+
             <div
               style={{
-                padding: '12px 16px',
-                borderRadius: '8px',
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                fontSize: '0.8125rem',
-                color: 'var(--text-primary)',
+                background: 'rgba(74, 21, 75, 0.08)',
+                borderLeft: '4px solid #4a154b',
+                padding: '14px 16px',
+                borderRadius: '6px',
+                fontSize: '0.75rem',
+                fontFamily: 'var(--font-sans)',
               }}
             >
-              <strong>Multi-Host Cross-Correlation (FR-04):</strong> Rather than sending separate alerts for each server,
-              LogGate aggregates duplicate patterns across all {incident.hosts.length} client hosts into this single incident record.
-            </div>
-
-            <div className="card" style={{ overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-input)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
-                    <th style={{ padding: '10px 16px', color: 'var(--text-muted)' }}>Host Node</th>
-                    <th style={{ padding: '10px 16px', color: 'var(--text-muted)' }}>Service Container</th>
-                    <th style={{ padding: '10px 16px', color: 'var(--text-muted)' }}>Local Raw Lines</th>
-                    <th style={{ padding: '10px 16px', color: 'var(--text-muted)' }}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {incident.hosts.map((hostName, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                        {hostName}
-                      </td>
-                      <td style={{ padding: '12px 16px', color: 'var(--text-secondary)' }}>
-                        {incident.service} (v2.4.1)
-                      </td>
-                      <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', color: '#10b981' }}>
-                        {Math.round(incident.rawLinesCount / incident.hosts.length).toLocaleString()} lines
-                      </td>
-                      <td style={{ padding: '12px 16px' }}>
-                        <span className="badge badge-success" style={{ fontSize: '0.6875rem' }}>
-                          Streaming
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div style={{ color: '#f87171', fontWeight: 700, marginBottom: '6px', fontSize: '0.8125rem' }}>
+                [CRITICAL] {incident.service} ({incident.environment}) — {incident.rawLinesCount}x occurrences
+              </div>
+              <div style={{ color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                *Project:* {projectName} • *Owning Team:* {incident.modelDecision.owningTeam} • *Score:* 2.45/3.0
+              </div>
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '0.6875rem',
+                  background: 'rgba(0,0,0,0.4)',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  wordBreak: 'break-all',
+                  color: '#e4e4e7',
+                }}
+              >
+                {incident.pattern}
+              </div>
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

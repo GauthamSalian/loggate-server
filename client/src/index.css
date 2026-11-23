@@ -105,13 +105,20 @@
   padding: 0;
 }
 
-body {
-  font-family: var(--font-sans);
+html,
+body,
+#root {
   background-color: var(--bg-main);
   color: var(--text-primary);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
   overflow-x: hidden;
 }
 
