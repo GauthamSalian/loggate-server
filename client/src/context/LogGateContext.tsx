@@ -115,14 +115,16 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [health]);
 
   // Keep selectedIncident synchronized with incidents list
-  useEffect(() => {
+  const [prevIncidents, setPrevIncidents] = useState(incidents);
+  if (incidents !== prevIncidents) {
+    setPrevIncidents(incidents);
     if (selectedIncident) {
       const updated = incidents.find((inc) => inc.id === selectedIncident.id);
-      if (updated) {
+      if (updated && updated !== selectedIncident) {
         setSelectedIncident(updated);
       }
     }
-  }, [incidents]);
+  }
 
   // Actions
   const resolveIncident = (id: string) => {
@@ -301,6 +303,8 @@ export const LogGateProvider: React.FC<{ children: React.ReactNode }> = ({ child
     _environment: 'production' | 'staging' | 'canary',
     _host: string
   ): SandboxEvaluationResult => {
+    void _environment;
+    void _host;
     const lines = rawInput
       .split('\n')
       .map((l) => l.trim())

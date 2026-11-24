@@ -1,85 +1,52 @@
 import { useState } from 'react';
-import { ThemeProvider } from './context/ThemeContext';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { LogGateProvider } from './context/LogGateContext';
-import { WelcomePage } from './components/welcome/WelcomePage';
+import { ProjectProvider } from './context/ProjectContext';
 import { SignInPage } from './components/auth/SignInPage';
-import { Navbar } from './components/layout/Navbar';
 import { Sidebar } from './components/layout/Sidebar';
 import type { ActiveTab } from './components/layout/Sidebar';
-import { SystemAlertBar } from './components/layout/SystemAlertBar';
-import { IncidentList } from './components/incidents/IncidentList';
-import { SensitivityTuner } from './components/tuning/SensitivityTuner';
-import { PatternBrowser } from './components/patterns/PatternBrowser';
-import { CostSavings } from './components/analytics/CostSavings';
-import { TriageSandbox } from './components/sandbox/TriageSandbox';
-import { FleetConnect } from './components/fleet/FleetConnect';
-import { SlackSettings } from './components/settings/SlackSettings';
+import { Navbar } from './components/layout/Navbar';
+import { DashboardPage } from './pages/DashboardPage';
+import { TriagePage } from './pages/TriagePage';
+import { TriageTestPage } from './pages/TriageTestPage';
+import { AgentsPage } from './pages/AgentsPage';
+import { TokensPage } from './pages/TokensPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { fadeInSlideUp } from './lib/motion';
 
-type ViewMode = 'welcome' | 'signin' | 'dashboard';
+function AppShell() {
+  const { isAuthenticated } = useAuth();
+  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
 
-function AppContent() {
-  const { login } = useAuth();
-  const [viewMode, setViewMode] = useState<ViewMode>('welcome');
-  const [activeTab, setActiveTab] = useState<ActiveTab>('incidents');
-
-  // Step 1: Welcome / Landing Page
-  if (viewMode === 'welcome') {
-    return (
-      <WelcomePage
-        onGetStarted={() => setViewMode('signin')}
-        onExploreDemo={() => {
-          login('admin@loggate.io', 'Platform Admin', 'Production Infrastructure');
-          setViewMode('dashboard');
-        }}
-      />
-    );
+  if (!isAuthenticated) {
+    return <SignInPage onSuccess={() => {}} />;
   }
 
-  // Step 2: Dedicated Sign In Page
-  if (viewMode === 'signin') {
-    return (
-      <SignInPage
-        onBackToWelcome={() => setViewMode('welcome')}
-        onSuccess={() => setViewMode('dashboard')}
-      />
-    );
-  }
-
-  // Step 3: Full Dashboard Console
   return (
-    <div className="app-container">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        activeTab={activeTab}
-        onSelectTab={setActiveTab}
-        onGoHome={() => setViewMode('welcome')}
-      />
-
-      {/* Main Workspace */}
-      <div className="main-content">
-        <Navbar
-          activeTab={activeTab}
-          onOpenLogin={() => setViewMode('signin')}
-          onGoHome={() => setViewMode('welcome')}
-        />
-
-        {/* Scrollable Content Container (Navbar and Sidebar stay 100% fixed) */}
-        <div className="content-scroll-area">
-          {/* FR-26 Persistent Resilience Alert Bar */}
-          <SystemAlertBar />
-
-          {/* Dynamic Page Views */}
-          <main className="page-body">
-            {activeTab === 'incidents' && <IncidentList />}
-            {activeTab === 'tuning' && <SensitivityTuner />}
-            {activeTab === 'patterns' && <PatternBrowser />}
-            {activeTab === 'analytics' && <CostSavings />}
-            {activeTab === 'sandbox' && <TriageSandbox />}
-            {activeTab === 'fleet' && <FleetConnect />}
-            {activeTab === 'settings' && <SlackSettings />}
-          </main>
-        </div>
+    <div className="app-shell">
+      <Sidebar activeTab={activeTab} onSelectTab={setActiveTab} />
+      <div className="main-area">
+        <Navbar activeTab={activeTab} />
+        <main className="page-scroll">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              variants={fadeInSlideUp}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="page-wrapper"
+            >
+              {activeTab === 'dashboard' && <DashboardPage />}
+              {activeTab === 'triage' && <TriagePage />}
+              {activeTab === 'triage-sandbox' && <TriageTestPage />}
+              {activeTab === 'agents' && <AgentsPage />}
+              {activeTab === 'tokens' && <TokensPage />}
+              {activeTab === 'settings' && <SettingsPage />}
+            </motion.div>
+          </AnimatePresence>
+        </main>
       </div>
     </div>
   );
@@ -87,12 +54,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <ThemeProvider>
+    <ErrorBoundary>
       <AuthProvider>
-        <LogGateProvider>
-          <AppContent />
-        </LogGateProvider>
+        <ProjectProvider>
+          <AppShell />
+        </ProjectProvider>
       </AuthProvider>
-    </ThemeProvider>
+    </ErrorBoundary>
   );
 }

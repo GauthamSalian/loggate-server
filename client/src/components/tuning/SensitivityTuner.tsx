@@ -21,11 +21,13 @@ export const SensitivityTuner: React.FC = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Sync draft if settings update from elsewhere
-  React.useEffect(() => {
+  const [prevSettings, setPrevSettings] = useState(settings);
+  if (settings !== prevSettings) {
+    setPrevSettings(settings);
     setDraftNoiseFloor(settings.noiseFloor);
     setDraftSeverityThreshold(settings.severityThreshold);
     setDraftBurstThreshold(settings.burstThreshold);
-  }, [settings]);
+  }
 
   // Live simulation preview calculation (FR-22)
   const preview = useMemo(() => {

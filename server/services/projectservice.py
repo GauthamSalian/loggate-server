@@ -297,7 +297,7 @@ def get_connected_machine(project_id: str, requesting_user_id: str):
     try:
         res = (
             supabase.table("machines")
-            .select("machine_id, name, service, environment, last_seen_at")
+            .select("machine_id, name, service, environment, last_seen_at, last_key_id")
             .eq("project_id", project_id)
             .execute()
         )

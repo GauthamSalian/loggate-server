@@ -189,6 +189,7 @@ async def send_project_test_slack(
         detail=result.get("message", "Failed to send Slack test alert")
     )
 
+@project_router.get("/{project_id}/machines", status_code=status.HTTP_200_OK)
 @project_router.get("/{project_id}/display_machines", status_code=status.HTTP_200_OK)
 async def get_project_machines(
     project_id: str,
@@ -206,6 +207,7 @@ async def get_project_machines(
         detail=result.get("message", "Failed to fetch project machines")
     )
 
+@project_router.get("/{project_id}/members", status_code=status.HTTP_200_OK)
 @project_router.get("/{project_id}/display_members", status_code=status.HTTP_200_OK)
 async def list_project_members(
     project_id: str,
@@ -223,6 +225,7 @@ async def list_project_members(
         detail=result.get("message", "Failed to fetch project members")
     )
 
+@project_router.delete("/{project_id}", status_code=status.HTTP_200_OK)
 @project_router.delete("/{project_id}/delete", status_code=status.HTTP_200_OK)
 async def delete_project_by_api(
     project_id: str,

@@ -9,6 +9,7 @@ from server.api.projectapi import project_router
 from server.api.payloadapi import payload_router
 from server.api.triageapi import triage_router
 from contextlib import asynccontextmanager
+from fastapi.middleware.cors import CORSMiddleware
 import httpx
 
 @asynccontextmanager
@@ -21,6 +22,14 @@ async def lifespan(app: FastAPI):
     await app.state.http_client.aclose()
 
 app = FastAPI(title="LogGate Server API", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(auth_router, prefix="/api/v1/auth")
 app.include_router(token_router, prefix="/api/v1/tokens")

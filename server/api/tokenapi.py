@@ -89,6 +89,7 @@ async def list_tokens(
     )
 
 @token_router.post("/list-key-metrics", status_code=status.HTTP_200_OK)
+@token_router.post("/token-metrics", status_code=status.HTTP_200_OK)
 async def display_key_metrics(
     payload: ListTokenMetricRequest,
     current_user: dict = Depends(get_current_user)

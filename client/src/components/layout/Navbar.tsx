@@ -1,337 +1,350 @@
 import React, { useState } from 'react';
-import { useLogGate } from '../../context/LogGateContext';
-import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
-import type { ActiveTab } from './Sidebar';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Activity,
-  Sun,
-  Moon,
-  Zap,
-  Play,
-  Pause,
-  AlertTriangle,
-  Sparkles,
-  Server,
-  User,
-  LogOut,
+  Bell,
   ChevronDown,
-  Home,
+  LogOut,
+  User as UserIcon,
+  ShieldCheck,
+  Copy,
+  CheckCheck,
+  Code2,
+  KeyRound,
+  RefreshCw
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { authApi } from '../../lib/api';
+import type { ActiveTab } from './Sidebar';
+import { springTransition, fadeInSlideUp } from '../../lib/motion';
 
-interface NavbarProps {
-  activeTab?: ActiveTab;
-  onOpenLogin: () => void;
-  onGoHome: () => void;
-}
-
-const TAB_TITLES: Record<ActiveTab, string> = {
-  incidents: 'Live Incident Triage',
-  tuning: 'Noise-Floor & Sensitivity',
-  patterns: 'Pattern Catalog',
-  analytics: 'Cost Avoidance & ROI',
-  sandbox: 'Triage Sandbox',
-  fleet: 'Host Fleet Nodes',
-  settings: 'Slack Alert Routing',
+const TAB_LABELS: Record<ActiveTab, string> = {
+  dashboard: 'Overview',
+  triage: 'Triage & Pattern Explorer',
+  'triage-sandbox': 'Triage Sandbox & Testing',
+  agents: 'Fleet & Agents',
+  tokens: 'API Keys & Setup',
+  settings: 'Project Settings',
 };
 
-export const Navbar: React.FC<NavbarProps> = ({ activeTab = 'incidents', onOpenLogin, onGoHome }) => {
-  const {
-    health,
-    liveStreaming,
-    setLiveStreaming,
-    simulateIncomingBatch,
-    simulateOverloadBurst,
-    toggleModelDegraded,
-    toggleSlackOutage,
-  } = useLogGate();
-  const { user, isAuthenticated, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
+interface NavbarProps {
+  activeTab: ActiveTab;
+}
 
-  const [showSimMenu, setShowSimMenu] = useState(false);
-  const [showUserMenu, setShowUserMenu] = useState(false);
+export const Navbar: React.FC<NavbarProps> = ({ activeTab }) => {
+  const { user, logout } = useAuth();
+  const [showUser, setShowUser] = useState(false);
 
-  const activeTitle = TAB_TITLES[activeTab] || 'Observability Console';
+  // Profile Modal State
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileData, setProfileData] = useState<Record<string, unknown> | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileTab, setProfileTab] = useState<'details' | 'json'>('details');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const initials = user?.username ? user.username.slice(0, 2).toUpperCase() : '??';
+
+  const fetchProfile = async () => {
+    setLoadingProfile(true);
+    try {
+      const res = await authApi.me();
+      setProfileData(res.user || null);
+    } catch {
+      // Fallback to local decoded token user
+      setProfileData({
+        user_id: user?.user_id || '1',
+        username: user?.username || 'User',
+        email: user?.email || 'user@loggate.io',
+      });
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  const handleOpenProfile = async () => {
+    setShowUser(false);
+    setShowProfileModal(true);
+    await fetchProfile();
+  };
+
+  const handleCopy = async (text: string, key: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  };
 
   return (
-    <header
-      className="glass-panel"
-      style={{
-        position: 'relative',
-        zIndex: 50,
-        height: '60px',
-        flexShrink: 0,
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        borderBottom: '1px solid var(--border-subtle)',
-        gap: '12px',
-      }}
-    >
-      {/* Left: Clean Active Title (never truncates) */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        <span
-          style={{
-            fontSize: '1.05rem',
-            fontWeight: 800,
-            letterSpacing: '-0.01em',
-            color: 'var(--text-primary)',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {activeTitle}
-        </span>
+    <header className="navbar">
+      {/* Breadcrumb */}
+      <div className="navbar-breadcrumb">
+        <span className="breadcrumb-root">LogGate</span>
+        <span className="breadcrumb-sep">/</span>
+        <span className="breadcrumb-active">{TAB_LABELS[activeTab]}</span>
       </div>
 
-      {/* Center: Compact Telemetry Bar */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          background: 'var(--bg-card-subtle)',
-          padding: '4px 14px',
-          borderRadius: '9999px',
-          border: '1px solid var(--border-subtle)',
-          flexShrink: 0,
-        }}
-        className="telemetry-bar"
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.775rem' }}>
-          <span className="pulse-dot pulse-dot-green" />
-          <span style={{ color: 'var(--text-muted)' }}>Jev:</span>
-          <strong style={{ color: health.modelStatus === 'healthy' ? '#10b981' : '#f59e0b', fontFamily: 'var(--font-mono)' }}>
-            {health.modelLatencyMs}ms
-          </strong>
-        </div>
-
-        <div style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.775rem' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Cut:</span>
-          <strong style={{ color: '#60a5fa', fontFamily: 'var(--font-mono)' }}>98.6%</strong>
-        </div>
-
-        <div style={{ width: '1px', height: '12px', background: 'var(--border-subtle)' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.775rem' }}>
-          <span style={{ color: 'var(--text-muted)' }}>Slack:</span>
-          <strong style={{ color: health.slackStatus === 'connected' ? '#10b981' : '#ef4444' }}>
-            {health.slackStatus === 'connected' ? 'Connected' : `Held (${health.queuedAlertsCount})`}
-          </strong>
-        </div>
-      </div>
-
-      {/* Right: Operational Controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-        {/* Welcome Overview Link */}
-        <button
-          onClick={onGoHome}
-          className="btn btn-sm btn-outline"
-          title="Return to Welcome Overview"
-          style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.75rem' }}
-        >
-          <Home size={13} />
-          <span>Overview</span>
+      {/* Right controls */}
+      <div className="navbar-actions">
+        <button className="icon-btn" title="Notifications">
+          <Bell size={16} />
         </button>
 
-        {/* Live stream toggle */}
-        <button
-          onClick={() => setLiveStreaming(!liveStreaming)}
-          className={`btn btn-sm ${liveStreaming ? 'btn-secondary' : 'btn-outline'}`}
-          title={liveStreaming ? 'Pause live stream intake' : 'Resume live stream intake'}
-          style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.75rem' }}
-        >
-          {liveStreaming ? (
-            <>
-              <span className="pulse-dot pulse-dot-green" />
-              <Pause size={12} />
-              <span>Live</span>
-            </>
-          ) : (
-            <>
-              <Play size={12} color="#94a3b8" />
-              <span>Paused</span>
-            </>
-          )}
-        </button>
-
-        {/* Test Scenarios dropdown */}
-        <div style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowSimMenu(!showSimMenu)}
-            className="btn btn-sm btn-outline"
-            style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '4px 10px', fontSize: '0.75rem' }}
+        <div className="user-menu-wrapper">
+          <motion.button
+            className="user-trigger"
+            onClick={() => setShowUser(!showUser)}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
+            transition={springTransition}
           >
-            <Sparkles size={13} color="#f59e0b" />
-            <span>Test Scenarios</span>
-            <ChevronDown size={11} />
-          </button>
-
-          {showSimMenu && (
-            <div
-              className="card"
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '6px',
-                width: '280px',
-                padding: '8px',
-                zIndex: 100,
-                boxShadow: 'var(--shadow-lg)',
-                border: '1px solid var(--border-strong)',
-              }}
-            >
-              <div
-                style={{
-                  padding: '6px 10px',
-                  fontSize: '0.6875rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                URD Requirement Simulations
-              </div>
-
-              <button
-                onClick={() => {
-                  simulateIncomingBatch();
-                  setShowSimMenu(false);
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'flex-start', padding: '7px 10px', fontSize: '0.8125rem' }}
-              >
-                <Zap size={13} color="#3b82f6" />
-                <span>Inject Error Batch (FR-01/04)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  toggleModelDegraded();
-                  setShowSimMenu(false);
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'flex-start', padding: '7px 10px', fontSize: '0.8125rem' }}
-              >
-                <Activity size={13} color="#f59e0b" />
-                <span>Toggle Model Degraded (FR-16)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  toggleSlackOutage();
-                  setShowSimMenu(false);
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'flex-start', padding: '7px 10px', fontSize: '0.8125rem' }}
-              >
-                <AlertTriangle size={13} color="#ef4444" />
-                <span>Toggle Slack Outage (FR-14)</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  simulateOverloadBurst();
-                  setShowSimMenu(false);
-                }}
-                className="btn btn-outline"
-                style={{ width: '100%', justifyContent: 'flex-start', padding: '7px 10px', fontSize: '0.8125rem' }}
-              >
-                <Server size={13} color="#8b5cf6" />
-                <span>Simulate 10k/sec Burst (FR-03)</span>
-              </button>
+            <div className="user-avatar">{initials}</div>
+            <div className="user-info">
+              <span className="user-name">{user?.username ?? 'User'}</span>
+              <span className="user-email">{user?.email ?? ''}</span>
             </div>
-          )}
-        </div>
+            <ChevronDown size={13} />
+          </motion.button>
 
-        {/* Theme toggle */}
-        <button
-          onClick={toggleTheme}
-          className="btn btn-sm btn-outline"
-          title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-          style={{ width: '32px', height: '30px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
-        </button>
-
-        {/* User Account / Role */}
-        {isAuthenticated && user ? (
-          <div style={{ position: 'relative' }}>
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="btn btn-sm btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 8px' }}
-            >
-              <div
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  borderRadius: '50%',
-                  background: 'var(--brand-primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.625rem',
-                  color: '#fff',
-                  fontWeight: 700,
-                }}
+          <AnimatePresence>
+            {showUser && (
+              <motion.div
+                className="user-dropdown"
+                variants={fadeInSlideUp}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
               >
-                {user.name.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ textAlign: 'left', lineHeight: 1 }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-primary)' }}>{user.name}</div>
-                <div style={{ fontSize: '0.5875rem', color: 'var(--text-muted)' }}>{user.role}</div>
-              </div>
-              <ChevronDown size={10} />
-            </button>
-
-            {showUserMenu && (
-              <div
-                className="card"
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '6px',
-                  width: '230px',
-                  padding: '10px',
-                  zIndex: 100,
-                  boxShadow: 'var(--shadow-lg)',
-                  border: '1px solid var(--border-strong)',
-                }}
-              >
-                <div style={{ padding: '4px 6px 8px 6px', borderBottom: '1px solid var(--border-subtle)' }}>
-                  <div style={{ fontSize: '0.8125rem', fontWeight: 700 }}>{user.name}</div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>{user.email}</div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--brand-primary)', marginTop: '2px' }}>
-                    {user.organization}
+                <div className="dropdown-header">
+                  <div className="user-avatar user-avatar--lg">{initials}</div>
+                  <div>
+                    <div className="dropdown-name">{user?.username}</div>
+                    <div className="dropdown-email">{user?.email}</div>
                   </div>
                 </div>
+                <div className="dropdown-divider" />
+
+                {/* Profile Tab Item */}
                 <button
-                  onClick={() => {
-                    logout();
-                    setShowUserMenu(false);
-                    onGoHome();
-                  }}
-                  className="btn btn-outline"
-                  style={{ width: '100%', justifyContent: 'flex-start', marginTop: '6px', color: '#f87171', padding: '6px 8px', fontSize: '0.75rem' }}
+                  className="dropdown-item"
+                  onClick={handleOpenProfile}
+                  style={{ gap: '9px', color: '#18181b', fontWeight: 500 }}
                 >
+                  <UserIcon size={14} className="text-zinc-500" />
+                  <span>User Profile (/me)</span>
+                </button>
+
+                <div className="dropdown-divider" />
+                <button className="dropdown-item dropdown-item--danger" onClick={logout}>
                   <LogOut size={13} />
                   <span>Sign Out</span>
                 </button>
-              </div>
+              </motion.div>
             )}
-          </div>
-        ) : (
-          <button onClick={onOpenLogin} className="btn btn-sm btn-primary">
-            <User size={13} />
-            <span>Sign In</span>
-          </button>
-        )}
+          </AnimatePresence>
+        </div>
       </div>
+
+      {/* User Profile (/me) Modal */}
+      <AnimatePresence>
+        {showProfileModal && (
+          <div className="modal-overlay" onClick={() => setShowProfileModal(false)}>
+            <motion.div
+              className="modal"
+              onClick={(e) => e.stopPropagation()}
+              variants={fadeInSlideUp}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{ maxWidth: '560px' }}
+            >
+              {/* Modal Header */}
+              <div className="modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div className="user-avatar" style={{ width: '28px', height: '28px', fontSize: '0.75rem' }}>
+                    {initials}
+                  </div>
+                  <div>
+                    <h3 className="modal-title" style={{ margin: 0, fontSize: '1rem' }}>User Profile Details</h3>
+                    <span style={{ fontSize: '0.6875rem', color: '#71717a', fontFamily: 'JetBrains Mono, monospace' }}>
+                      GET /api/v1/auth/me
+                    </span>
+                  </div>
+                </div>
+                <button className="icon-btn" onClick={() => setShowProfileModal(false)}>✕</button>
+              </div>
+
+              {/* Tabs inside Profile Modal */}
+              <div style={{ display: 'flex', gap: '6px', margin: '14px 0', borderBottom: '1px solid #e4e4e7', paddingBottom: '8px' }}>
+                <button
+                  onClick={() => setProfileTab('details')}
+                  className={`install-tab ${profileTab === 'details' ? 'install-tab--active' : ''}`}
+                  style={{ border: 'none', padding: '6px 12px', fontSize: '0.8125rem' }}
+                >
+                  <UserIcon size={13} />
+                  <span>Profile Overview</span>
+                </button>
+                <button
+                  onClick={() => setProfileTab('json')}
+                  className={`install-tab ${profileTab === 'json' ? 'install-tab--active' : ''}`}
+                  style={{ border: 'none', padding: '6px 12px', fontSize: '0.8125rem' }}
+                >
+                  <Code2 size={13} />
+                  <span>Raw API Response (/me)</span>
+                </button>
+
+                <button
+                  className="icon-btn"
+                  onClick={fetchProfile}
+                  title="Refresh /me profile"
+                  style={{ marginLeft: 'auto' }}
+                  disabled={loadingProfile}
+                >
+                  <RefreshCw size={13} className={loadingProfile ? 'animate-spin' : ''} />
+                </button>
+              </div>
+
+              {/* Tab 1: Profile Overview */}
+              {profileTab === 'details' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Account Badge Card */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '14px 16px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div className="user-avatar user-avatar--lg" style={{ fontSize: '0.875rem' }}>
+                        {initials}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#09090b' }}>
+                          {String(profileData?.username || user?.username || 'Authenticated User')}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                          {String(profileData?.email || user?.email || 'user@loggate.io')}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="badge badge--emerald" style={{ gap: '5px' }}>
+                      <ShieldCheck size={12} />
+                      Active Session
+                    </span>
+                  </div>
+
+                  {/* Field Grid */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                    {/* User ID */}
+                    <div style={{ padding: '12px 14px', border: '1px solid #e4e4e7', borderRadius: '8px', background: '#fff' }}>
+                      <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#71717a', textTransform: 'uppercase' }}>
+                        User ID / UUID
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                        <code className="mono text-xs">{String(profileData?.user_id || user?.user_id || '1')}</code>
+                        <button
+                          className="icon-btn"
+                          onClick={() => handleCopy(String(profileData?.user_id || user?.user_id || '1'), 'id')}
+                          title="Copy User ID"
+                        >
+                          {copiedKey === 'id' ? <CheckCheck size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Username */}
+                    <div style={{ padding: '12px 14px', border: '1px solid #e4e4e7', borderRadius: '8px', background: '#fff' }}>
+                      <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#71717a', textTransform: 'uppercase' }}>
+                        Username
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#09090b' }}>
+                          {String(profileData?.username || user?.username || 'User')}
+                        </span>
+                        <button
+                          className="icon-btn"
+                          onClick={() => handleCopy(String(profileData?.username || user?.username || 'User'), 'username')}
+                          title="Copy Username"
+                        >
+                          {copiedKey === 'username' ? <CheckCheck size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Email */}
+                    <div style={{ padding: '12px 14px', border: '1px solid #e4e4e7', borderRadius: '8px', background: '#fff' }}>
+                      <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#71717a', textTransform: 'uppercase' }}>
+                        Email Address
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                        <span style={{ fontSize: '0.8125rem', color: '#3f3f46', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {String(profileData?.email || user?.email || 'user@loggate.io')}
+                        </span>
+                        <button
+                          className="icon-btn"
+                          onClick={() => handleCopy(String(profileData?.email || user?.email || 'user@loggate.io'), 'email')}
+                          title="Copy Email"
+                        >
+                          {copiedKey === 'email' ? <CheckCheck size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Auth Strategy */}
+                    <div style={{ padding: '12px 14px', border: '1px solid #e4e4e7', borderRadius: '8px', background: '#fff' }}>
+                      <label style={{ fontSize: '0.6875rem', fontWeight: 600, color: '#71717a', textTransform: 'uppercase' }}>
+                        Authentication Method
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                        <KeyRound size={13} className="text-blue-600" />
+                        <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: '#09090b' }}>Bearer JWT (HS256)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 2: Raw /me JSON */}
+              {profileTab === 'json' && (
+                <div style={{ background: '#0f172a', borderRadius: '8px', padding: '14px', position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.6875rem', color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace' }}>
+                      Response Body
+                    </span>
+                    <button
+                      className="icon-btn"
+                      onClick={() => handleCopy(JSON.stringify({ status: 'success', user: profileData }, null, 2), 'raw')}
+                      style={{ color: '#cbd5e1' }}
+                      title="Copy JSON"
+                    >
+                      {copiedKey === 'raw' ? <CheckCheck size={13} className="text-emerald-400" /> : <Copy size={13} />}
+                    </button>
+                  </div>
+                  <pre style={{ margin: 0, fontSize: '0.75rem', color: '#e2e8f0', fontFamily: 'JetBrains Mono, monospace', maxHeight: '200px', overflowY: 'auto' }}>
+                    {JSON.stringify({ status: 'success', user: profileData }, null, 2)}
+                  </pre>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '16px', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setShowProfileModal(false)}
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </header>
   );
 };
+
+// Alias for backward compat
+export { UserIcon as User };
