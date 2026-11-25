@@ -67,11 +67,11 @@ export const TriageSandbox: React.FC = () => {
               width: '36px',
               height: '36px',
               borderRadius: '8px',
-              background: 'rgba(59, 130, 246, 0.15)',
+              background: 'rgba(137, 243, 54, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#60a5fa',
+              color: '#89F336',
             }}
           >
             <Terminal size={20} />
@@ -124,14 +124,14 @@ export const TriageSandbox: React.FC = () => {
                   padding: '12px 14px',
                   borderRadius: '8px',
                   border: selectedPresetId === preset.id ? '2px solid var(--brand-primary)' : '1px solid var(--border-subtle)',
-                  background: selectedPresetId === preset.id ? 'rgba(59, 130, 246, 0.12)' : 'var(--bg-input)',
+                  background: selectedPresetId === preset.id ? 'rgba(137, 243, 54, 0.12)' : 'var(--bg-input)',
                   color: selectedPresetId === preset.id ? '#ffffff' : 'var(--text-secondary)',
                   cursor: 'pointer',
                   textAlign: 'left',
                   transition: 'all 0.15s ease',
                 }}
               >
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: selectedPresetId === preset.id ? '#60a5fa' : 'var(--text-primary)' }}>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: selectedPresetId === preset.id ? '#89F336' : 'var(--text-primary)' }}>
                   {preset.name}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
@@ -325,7 +325,7 @@ export const TriageSandbox: React.FC = () => {
                 </div>
                 <div style={{ padding: '10px', background: 'var(--bg-input)', borderRadius: '6px' }}>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>OWNING TEAM</div>
-                  <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#60a5fa', marginTop: '4px' }}>
+                  <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#89F336', marginTop: '4px' }}>
                     {result.modelDecision.owningTeam}
                   </div>
                 </div>
@@ -378,7 +378,7 @@ export const TriageSandbox: React.FC = () => {
               </div>
               <div>
                 <span style={{ color: 'var(--text-muted)' }}>Owning Team:</span>{' '}
-                <strong style={{ color: '#60a5fa' }}>{result.slackPayload.owningTeam}</strong>
+                <strong style={{ color: '#89F336' }}>{result.slackPayload.owningTeam}</strong>
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Pattern:</span>
@@ -388,7 +388,7 @@ export const TriageSandbox: React.FC = () => {
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Incident URL:</span>{' '}
-                <span style={{ color: '#3b82f6', textDecoration: 'underline' }}>
+                <span style={{ color: '#89F336', textDecoration: 'underline' }}>
                   {result.slackPayload.incidentDetailUrl}
                 </span>
               </div>

@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
           justifyContent: 'center',
           padding: '24px',
           background: '#f9fafb',
-          fontFamily: 'Inter, sans-serif'
+          fontFamily: "'Lato', sans-serif"
         }}>
           <div style={{
             maxWidth: '500px',
@@ -63,8 +63,8 @@ export class ErrorBoundary extends Component<Props, State> {
                 onClick={() => window.location.reload()}
                 style={{
                   padding: '8px 16px',
-                  background: '#2563eb',
-                  color: '#fff',
+                  background: '#89F336',
+                  color: '#0a0a0a',
                   border: 'none',
                   borderRadius: '6px',
                   fontWeight: 600,

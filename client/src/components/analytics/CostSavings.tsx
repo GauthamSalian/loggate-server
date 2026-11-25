@@ -97,7 +97,7 @@ export const CostSavings: React.FC = () => {
           value={`$${parseFloat(monthlyProjected).toLocaleString()}`}
           subtitle={`Annualized: $${annualProjected} / yr`}
           icon={<Calendar size={20} />}
-          highlightColor="#3b82f6"
+          highlightColor="#89F336"
           trend={{ value: '30-day projection', isPositive: true }}
         />
 

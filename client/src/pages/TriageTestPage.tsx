@@ -263,7 +263,7 @@ export const TriageTestPage: React.FC = () => {
               fontWeight: 600,
               cursor: 'pointer',
               background: activeTab === 'web' ? '#fff' : 'transparent',
-              color: activeTab === 'web' ? '#2563eb' : '#71717a',
+              color: activeTab === 'web' ? '#0a0a0a' : '#71717a',
               boxShadow: activeTab === 'web' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               transition: 'all 0.15s'
             }}
@@ -285,7 +285,7 @@ export const TriageTestPage: React.FC = () => {
               fontWeight: 600,
               cursor: 'pointer',
               background: activeTab === 'slack' ? '#fff' : 'transparent',
-              color: activeTab === 'slack' ? '#2563eb' : '#71717a',
+              color: activeTab === 'slack' ? '#0a0a0a' : '#71717a',
               boxShadow: activeTab === 'slack' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
               transition: 'all 0.15s'
             }}
@@ -454,7 +454,7 @@ export const TriageTestPage: React.FC = () => {
               <div className="card" style={{ padding: '24px', background: '#fff', border: '1px solid #e4e4e7', borderRadius: '12px', display: 'flex', flexDirection: 'column' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <Activity size={17} className="text-blue-600" />
+                    <Activity size={17} style={{ color: '#89F336' }} />
                     <h2 style={{ fontSize: '0.9375rem', fontWeight: 700, margin: 0, color: '#09090b' }}>
                       Engine Verdict & Decision
                     </h2>
@@ -471,7 +471,7 @@ export const TriageTestPage: React.FC = () => {
                 </div>
 
                 {simError && (
-                  <div style={{ padding: '8px 12px', background: '#eff6ff', borderRadius: '6px', fontSize: '0.75rem', color: '#1d4ed8', marginBottom: '12px' }}>
+                  <div style={{ padding: '8px 12px', background: '#f0fdf4', borderRadius: '6px', fontSize: '0.75rem', color: '#166534', marginBottom: '12px' }}>
                     {simError}
                   </div>
                 )}
@@ -807,7 +807,7 @@ export const TriageTestPage: React.FC = () => {
                     width: '36px',
                     height: '36px',
                     borderRadius: '8px',
-                    background: '#2563eb',
+                    background: '#89F336',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',

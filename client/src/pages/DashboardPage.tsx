@@ -4,6 +4,7 @@ import { TrendingDown, Activity, Layers, Zap, ArrowUpRight } from 'lucide-react'
 import { projectApi } from '../lib/api';
 import type { MetricDay } from '../lib/api';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import { staggerContainer, fadeInSlideUp, springTransition } from '../lib/motion';
 
 // Mock fallback for when backend is offline
@@ -36,6 +37,7 @@ function fmt(n: number): string {
 
 export const DashboardPage: React.FC = () => {
   const { activeProject } = useProject();
+  const { isDemo } = useAuth();
   const [metrics, setMetrics] = useState<MetricDay[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -43,7 +45,7 @@ export const DashboardPage: React.FC = () => {
     let ignore = false;
     const load = async () => {
       setLoading(true);
-      if (!activeProject) {
+      if (isDemo || !activeProject) {
         if (!ignore) {
           setMetrics(MOCK_METRICS);
           setLoading(false);
@@ -53,10 +55,10 @@ export const DashboardPage: React.FC = () => {
       try {
         const res = await projectApi.metrics(activeProject.project_id);
         if (!ignore) {
-          setMetrics(res.metrics?.length ? res.metrics : MOCK_METRICS);
+          setMetrics(res.metrics || []);
         }
       } catch {
-        if (!ignore) setMetrics(MOCK_METRICS);
+        if (!ignore) setMetrics([]);
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -65,15 +67,15 @@ export const DashboardPage: React.FC = () => {
     return () => {
       ignore = true;
     };
-  }, [activeProject]);
+  }, [activeProject, isDemo]);
 
-  const latest = metrics && metrics.length > 0 ? metrics[metrics.length - 1] : MOCK_METRICS[MOCK_METRICS.length - 1];
+  const latest = metrics && metrics.length > 0 ? metrics[metrics.length - 1] : null;
   const totalRaw = metrics.reduce((s, m) => s + (Number(m.raw_lines) || 0), 0);
   const totalPatterns = metrics.reduce((s, m) => s + (Number(m.unique_patterns) || 0), 0);
   const totalBytesSaved = metrics.reduce((s, m) => s + (Number(m.bytes_saved) || 0), 0);
   const avgReduction = metrics.length > 0
     ? (metrics.reduce((s, m) => s + (Number(m.reduction_ratio) || 0), 0) / metrics.length).toFixed(1)
-    : '92.4';
+    : '0.0';
 
   const maxRaw = Math.max(...metrics.map((m) => Number(m.raw_lines) || 0), 1);
 
@@ -84,10 +86,10 @@ export const DashboardPage: React.FC = () => {
           <h1 className="page-title">Overview</h1>
           <p className="page-desc">Log reduction metrics for <strong>{activeProject?.name ?? 'Demo Project'}</strong></p>
         </div>
-        {!activeProject && (
+        {isDemo && (
           <div className="offline-badge">
             <span className="offline-dot" />
-            Demo Mode — Backend Offline
+            Demo Mode — Sample Data
           </div>
         )}
       </div>
@@ -124,7 +126,7 @@ export const DashboardPage: React.FC = () => {
           icon={<Zap size={18} />}
           label="Bandwidth Saved"
           value={loading ? '—' : `${(totalBytesSaved / 1_073_741_824).toFixed(2)} GB`}
-          sub="~${((totalBytesSaved / 1_073_741_824) * 0.15).toFixed(2)} ingest cost avoided"
+          sub={loading ? '—' : `~$${((totalBytesSaved / 1_073_741_824) * 0.15).toFixed(2)} ingest cost avoided`}
           accent="kpi-icon--amber"
         />
       </motion.div>
@@ -139,21 +141,27 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
         <div className="bar-chart">
-          {metrics.map((m, i) => (
-            <div key={i} className="bar-col" title={`${m.date}: ${fmt(m.raw_lines)} raw, ${fmt(m.unique_patterns)} patterns`}>
-              <div className="bar-stack">
-                <div
-                  className="bar bar--blue"
-                  style={{ height: `${(m.raw_lines / maxRaw) * 100}%` }}
-                />
-                <div
-                  className="bar bar--emerald"
-                  style={{ height: `${(m.unique_patterns / maxRaw) * 100}%` }}
-                />
-              </div>
-              <div className="bar-label">{m.date.slice(5)}</div>
+          {metrics.length === 0 && !loading ? (
+            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b7280', fontSize: '0.8125rem' }}>
+              No ingestion metrics yet for this project.
             </div>
-          ))}
+          ) : (
+            metrics.map((m, i) => (
+              <div key={i} className="bar-col" title={`${m.date}: ${fmt(m.raw_lines)} raw, ${fmt(m.unique_patterns)} patterns`}>
+                <div className="bar-stack">
+                  <div
+                    className="bar bar--blue"
+                    style={{ height: `${(m.raw_lines / maxRaw) * 100}%` }}
+                  />
+                  <div
+                    className="bar bar--emerald"
+                    style={{ height: `${(m.unique_patterns / maxRaw) * 100}%` }}
+                  />
+                </div>
+                <div className="bar-label">{m.date.slice(5)}</div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

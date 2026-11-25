@@ -86,7 +86,7 @@ export const IncidentList: React.FC = () => {
           value={activeIncidents.length}
           subtitle="Merged across 5 fleet hosts"
           icon={<Flame size={20} />}
-          highlightColor="#3b82f6"
+          highlightColor="#89F336"
           badge={
             <span className="badge badge-high" style={{ padding: '2px 8px', fontSize: '0.6875rem' }}>
               <span className="pulse-dot pulse-dot-red" />
@@ -146,7 +146,7 @@ export const IncidentList: React.FC = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#60a5fa',
+                color: '#89F336',
               }}
             >
               <Activity size={18} />
@@ -178,7 +178,7 @@ export const IncidentList: React.FC = () => {
               title="Inject a simulated production burst"
               style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
             >
-              <Zap size={14} color="#3b82f6" />
+              <Zap size={14} color="#89F336" />
               <span>Simulate Burst</span>
             </button>
           </div>

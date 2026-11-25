@@ -98,7 +98,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ onGetStarted, onExplor
           Stop Log Ingestion Bills &amp; Alert Fatigue{' '}
           <span
             style={{
-              background: 'linear-gradient(135deg, #60a5fa 0%, #a855f7 100%)',
+              background: 'linear-gradient(135deg, #89F336 0%, #6bcf2a 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}
@@ -158,7 +158,7 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ onGetStarted, onExplor
           </div>
 
           <div className="card" style={{ padding: '20px', textAlign: 'left' }}>
-            <div style={{ color: '#3b82f6', fontSize: '1.75rem', fontWeight: 800 }}>&lt;100 ms</div>
+            <div style={{ color: '#89F336', fontSize: '1.75rem', fontWeight: 800 }}>&lt;100 ms</div>
             <div style={{ fontWeight: 600, marginTop: '2px' }}>Jev Triage Decision</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
               Target &lt;100ms for 95% of decisions per incident (NFR-01).
@@ -197,9 +197,9 @@ export const WelcomePage: React.FC<WelcomePageProps> = ({ onGetStarted, onExplor
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
             {/* Part 1 */}
-            <div className="card" style={{ padding: '28px', borderLeft: '4px solid #3b82f6' }}>
+            <div className="card" style={{ padding: '28px', borderLeft: '4px solid #89F336' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-                <Server size={22} color="#3b82f6" />
+                <Server size={22} color="#89F336" />
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>Part 1: Plug-and-Play Host Module</h3>
               </div>
               <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>

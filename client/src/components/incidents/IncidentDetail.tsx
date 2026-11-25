@@ -199,7 +199,7 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
 
               <div className="card" style={{ padding: '14px' }}>
                 <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Owning Team</div>
-                <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '4px', color: '#60a5fa' }}>
+                <div style={{ fontSize: '1rem', fontWeight: 700, marginTop: '4px', color: '#89F336' }}>
                   {incident.modelDecision.owningTeam}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Jev Triage Classification</div>
@@ -229,13 +229,13 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
               className="card"
               style={{
                 padding: '22px',
-                border: '1px solid rgba(59, 130, 246, 0.35)',
-                background: 'linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, transparent 100%), var(--bg-card)',
+                border: '1px solid rgba(137, 243, 54, 0.35)',
+                background: 'linear-gradient(180deg, rgba(137, 243, 54, 0.08) 0%, transparent 100%), var(--bg-card)',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Sparkles size={20} color="#60a5fa" />
+                  <Sparkles size={20} color="#89F336" />
                   <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>
                     Jev Triage Neural Classifier (FR-07, FR-08)
                   </span>
@@ -303,8 +303,8 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
                 style={{
                   padding: '12px 14px',
                   borderRadius: '8px',
-                  background: 'rgba(59, 130, 246, 0.08)',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  background: 'rgba(137, 243, 54, 0.08)',
+                  border: '1px solid rgba(137, 243, 54, 0.2)',
                   fontSize: '0.8125rem',
                   lineHeight: 1.5,
                   color: 'var(--text-primary)',
@@ -323,8 +323,8 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
               style={{
                 padding: '12px 16px',
                 borderRadius: '8px',
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
+                background: 'rgba(137, 243, 54, 0.1)',
+                border: '1px solid rgba(137, 243, 54, 0.3)',
                 fontSize: '0.8125rem',
                 color: 'var(--text-primary)',
               }}
@@ -377,7 +377,7 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
             >
               <div>
                 <span style={{ color: 'var(--text-muted)' }}>UUIDs Masked:</span>
-                <div style={{ fontWeight: 700, color: '#60a5fa', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                <div style={{ fontWeight: 700, color: '#89F336', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
                   &lt;UUID&gt; (RFC 4122)
                 </div>
               </div>
@@ -513,7 +513,7 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
 
                 <div>
                   <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>8. Owning Team:</span>
-                  <div style={{ fontWeight: 700, color: '#60a5fa', marginTop: '2px' }}>
+                  <div style={{ fontWeight: 700, color: '#89F336', marginTop: '2px' }}>
                     @{incident.modelDecision.owningTeam}
                   </div>
                 </div>
@@ -549,8 +549,8 @@ export const IncidentDetail: React.FC<IncidentDetailProps> = ({ incident, onClos
               style={{
                 padding: '12px 16px',
                 borderRadius: '8px',
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
+                background: 'rgba(137, 243, 54, 0.1)',
+                border: '1px solid rgba(137, 243, 54, 0.3)',
                 fontSize: '0.8125rem',
                 color: 'var(--text-primary)',
               }}

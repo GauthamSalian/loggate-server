@@ -10,6 +10,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isDemo: boolean;
   token: string | null;
   login: (email: string, password: string) => Promise<void>;
   loginDemo: () => void;
@@ -85,8 +86,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('loggate_user');
   }, []);
 
+  const isDemo = token === 'demo_jwt_token_loggate_admin';
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: Boolean(token), token, login, loginDemo, logout, error, loading }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: Boolean(token), isDemo, token, login, loginDemo, logout, error, loading }}>
       {children}
     </AuthContext.Provider>
   );

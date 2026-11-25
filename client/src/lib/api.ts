@@ -293,15 +293,17 @@ export const tokenApi = {
           };
         });
       }
+      return [];
     } catch {
-      // Fall through to fallback metrics
+      if (getToken() === 'demo_jwt_token_loggate_admin') {
+        return [
+          { metric_date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10), bytes_ingested: 384000, raw_lines_count: 2450, error_count: 3 },
+          { metric_date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), bytes_ingested: 492000, raw_lines_count: 3120, error_count: 1 },
+          { metric_date: new Date().toISOString().slice(0, 10), bytes_ingested: 620000, raw_lines_count: 3980, error_count: 0 },
+        ];
+      }
+      return [];
     }
-    // Fallback baseline activity for newly created / active keys
-    return [
-      { metric_date: new Date(Date.now() - 86400000 * 2).toISOString().slice(0, 10), bytes_ingested: 384000, raw_lines_count: 2450, error_count: 3 },
-      { metric_date: new Date(Date.now() - 86400000).toISOString().slice(0, 10), bytes_ingested: 492000, raw_lines_count: 3120, error_count: 1 },
-      { metric_date: new Date().toISOString().slice(0, 10), bytes_ingested: 620000, raw_lines_count: 3980, error_count: 0 },
-    ];
   },
 };
 

@@ -298,7 +298,7 @@ export const Navbar: React.FC<NavbarProps> = ({ activeTab }) => {
                         Authentication Method
                       </label>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                        <KeyRound size={13} className="text-blue-600" />
+                        <KeyRound size={13} style={{ color: '#89F336' }} />
                         <span style={{ fontSize: '0.8125rem', fontWeight: 500, color: '#09090b' }}>Bearer JWT (HS256)</span>
                       </div>
                     </div>

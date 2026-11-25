@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { tokenApi, projectApi, type ApiToken, type Machine, type TokenMetric } from '../lib/api';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import { BASE_URL } from '../lib/api';
 import { staggerContainer, fadeInSlideUp, springTransition } from '../lib/motion';
 
@@ -36,6 +37,7 @@ function formatBytes(bytes: number): string {
 
 export const TokensPage: React.FC = () => {
   const { activeProject } = useProject();
+  const { isDemo } = useAuth();
   const [tokens, setTokens] = useState<ApiToken[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [loading, setLoading] = useState(true);
@@ -53,7 +55,7 @@ export const TokensPage: React.FC = () => {
   const [copiedJson, setCopiedJson] = useState(false);
 
   const fetchTokens = useCallback(async () => {
-    if (!activeProject) {
+    if (isDemo || !activeProject) {
       setTokens(MOCK_TOKENS);
       setLoading(false);
       return;
@@ -64,14 +66,14 @@ export const TokensPage: React.FC = () => {
         tokenApi.list(activeProject.project_id),
         projectApi.machines(activeProject.project_id).catch(() => ({ status: 'success', machines: [] })),
       ]);
-      setTokens(tokenRes.keys?.length ? tokenRes.keys : MOCK_TOKENS);
+      setTokens(tokenRes.keys || []);
       setMachines(machineRes.machines || []);
     } catch {
-      setTokens(MOCK_TOKENS);
+      setTokens([]);
     } finally {
       setLoading(false);
     }
-  }, [activeProject]);
+  }, [activeProject, isDemo]);
 
   useEffect(() => {
     let ignore = false;
@@ -228,7 +230,13 @@ export const TokensPage: React.FC = () => {
             <motion.tbody variants={staggerContainer} initial="hidden" animate="visible">
               {loading
                 ? Array.from({ length: 3 }).map((_, i) => <tr key={i}><td colSpan={6}><div className="skeleton" /></td></tr>)
-                : tokens.map((t) => {
+                : tokens.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px 16px', color: '#6b7280', fontSize: '0.8125rem' }}>
+                      No API keys created for this project yet. Click <strong>Create API Key</strong> above to generate one.
+                    </td>
+                  </tr>
+                ) : tokens.map((t) => {
                   const linked = machines.filter(m => m.last_key_id === t.key_id);
                   const displayMachines = linked.length > 0
                     ? linked
@@ -271,7 +279,7 @@ export const TokensPage: React.FC = () => {
                             style={{ padding: '4px 10px', fontSize: '0.75rem', gap: '5px' }}
                             title="View ingestion metrics for this token"
                           >
-                            <BarChart3 size={13} className="text-blue-600" />
+                            <BarChart3 size={13} style={{ color: '#89F336' }} />
                             <span>Token Metrics</span>
                           </button>
 
@@ -355,11 +363,11 @@ export const TokensPage: React.FC = () => {
                       width: '32px',
                       height: '32px',
                       borderRadius: '8px',
-                      background: '#eff6ff',
+                      background: '#f0fdf4',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#2563eb'
+                      color: '#166534'
                     }}
                   >
                     <BarChart3 size={18} />
@@ -416,7 +424,7 @@ export const TokensPage: React.FC = () => {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                     <div style={{ padding: '12px 14px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.6875rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
-                        <Database size={13} className="text-blue-600" />
+                        <Database size={13} style={{ color: '#89F336' }} />
                         <span>Data Ingested</span>
                       </div>
                       <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>
@@ -472,7 +480,7 @@ export const TokensPage: React.FC = () => {
                                 style={{
                                   width: '100%',
                                   height: `${pct}%`,
-                                  background: 'linear-gradient(180deg, #3b82f6, #2563eb)',
+                                  background: 'linear-gradient(180deg, #89F336, #6bcf2a)',
                                   borderRadius: '4px 4px 0 0',
                                   transition: 'height 0.3s ease'
                                 }}

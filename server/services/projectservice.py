@@ -22,7 +22,7 @@ def create_project(project_name: str, user_id: str):
     try:
         response = supabase.table("projects").insert({
             "name": project_name,
-            "user_id": user_id
+            "created_by": user_id
         }).execute()
 
         if not response.data:

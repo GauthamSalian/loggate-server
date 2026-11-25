@@ -66,11 +66,11 @@ loggate-tail --service auth-api --file /var/log/auth.log`,
               width: '36px',
               height: '36px',
               borderRadius: '8px',
-              background: 'rgba(59, 130, 246, 0.15)',
+              background: 'rgba(137, 243, 54, 0.15)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#60a5fa',
+              color: '#89F336',
             }}
           >
             <Server size={20} />
@@ -90,7 +90,7 @@ loggate-tail --service auth-api --file /var/log/auth.log`,
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Key size={18} color="#60a5fa" />
+              <Key size={18} color="#89F336" />
               <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-primary)' }}>
                 Organization Ingestion Key (HM-02, NFR-06)
               </h3>
@@ -110,7 +110,7 @@ loggate-tail --service auth-api --file /var/log/auth.log`,
                 padding: '8px 14px',
                 borderRadius: '8px',
                 border: '1px solid var(--border-subtle)',
-                color: showKey ? '#60a5fa' : 'var(--text-secondary)',
+                color: showKey ? '#89F336' : 'var(--text-secondary)',
                 minWidth: '320px',
               }}
             >
@@ -237,8 +237,8 @@ loggate-tail --service auth-api --file /var/log/auth.log`,
                         borderRadius: '4px',
                         fontSize: '0.6875rem',
                         fontWeight: 600,
-                        background: host.environment === 'production' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(245, 158, 11, 0.15)',
-                        color: host.environment === 'production' ? '#60a5fa' : '#fbbf24',
+                        background: host.environment === 'production' ? 'rgba(137, 243, 54, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                        color: host.environment === 'production' ? '#89F336' : '#fbbf24',
                         textTransform: 'uppercase',
                       }}
                     >

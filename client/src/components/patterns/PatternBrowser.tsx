@@ -37,11 +37,11 @@ export const PatternBrowser: React.FC = () => {
                 width: '36px',
                 height: '36px',
                 borderRadius: '8px',
-                background: 'rgba(59, 130, 246, 0.15)',
+                background: 'rgba(137, 243, 54, 0.15)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#60a5fa',
+                color: '#89F336',
               }}
             >
               <Database size={20} />
@@ -272,7 +272,7 @@ export const PatternBrowser: React.FC = () => {
 
               <div className="card" style={{ padding: '12px' }}>
                 <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)' }}>OWNING TEAM</div>
-                <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#60a5fa', marginTop: '4px' }}>
+                <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#89F336', marginTop: '4px' }}>
                   {selectedPattern.owningTeam}
                 </div>
               </div>

@@ -191,7 +191,7 @@ export const SensitivityTuner: React.FC = () => {
               Tuning Controls
             </h3>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Config: <code style={{ color: '#60a5fa' }}>config/settings.yaml</code>
+              Config: <code style={{ color: '#89F336' }}>config/settings.yaml</code>
             </span>
           </div>
 
@@ -249,8 +249,8 @@ export const SensitivityTuner: React.FC = () => {
                     flex: 1,
                     fontSize: '0.75rem',
                     borderColor: draftNoiseFloor === preset.val ? 'var(--brand-primary)' : 'var(--border-subtle)',
-                    background: draftNoiseFloor === preset.val ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-                    color: draftNoiseFloor === preset.val ? '#60a5fa' : 'var(--text-secondary)',
+                    background: draftNoiseFloor === preset.val ? 'rgba(137, 243, 54, 0.15)' : 'transparent',
+                    color: draftNoiseFloor === preset.val ? '#89F336' : 'var(--text-secondary)',
                     fontWeight: draftNoiseFloor === preset.val ? 700 : 500,
                   }}
                 >
@@ -320,8 +320,8 @@ export const SensitivityTuner: React.FC = () => {
                   bottom: 0,
                   left: `${draftNoiseFloor * 100}%`,
                   width: '2px',
-                  background: '#60a5fa',
-                  boxShadow: '0 0 8px rgba(96, 165, 250, 0.8)',
+                  background: '#89F336',
+                  boxShadow: '0 0 8px rgba(137, 243, 54, 0.8)',
                   pointerEvents: 'none',
                   transition: 'left 0.1s ease',
                   zIndex: 10,
@@ -333,8 +333,8 @@ export const SensitivityTuner: React.FC = () => {
                     top: '-6px',
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    background: '#3b82f6',
-                    color: '#fff',
+                    background: '#6bcf2a',
+                    color: '#0a0a0a',
                     fontSize: '0.625rem',
                     fontWeight: 700,
                     padding: '1px 4px',
@@ -387,15 +387,15 @@ export const SensitivityTuner: React.FC = () => {
                     style={{
                       padding: '12px 10px',
                       borderRadius: '8px',
-                      border: isSelected ? '2px solid #3b82f6' : '1px solid var(--border-subtle)',
-                      background: isSelected ? 'rgba(59, 130, 246, 0.15)' : 'var(--bg-input)',
+                      border: isSelected ? '2px solid #89F336' : '1px solid var(--border-subtle)',
+                      background: isSelected ? 'rgba(137, 243, 54, 0.15)' : 'var(--bg-input)',
                       color: isSelected ? 'var(--text-primary)' : 'var(--text-secondary)',
                       cursor: 'pointer',
                       textAlign: 'left',
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: isSelected ? '#60a5fa' : 'inherit' }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 700, color: isSelected ? '#89F336' : 'inherit' }}>
                       {opt.label}
                     </div>
                     <div style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', marginTop: '2px' }}>

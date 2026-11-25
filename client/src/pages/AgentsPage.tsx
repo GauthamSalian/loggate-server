@@ -4,6 +4,7 @@ import { Server, Monitor, Apple, Terminal, Clock, Download } from 'lucide-react'
 import { projectApi } from '../lib/api';
 import type { Machine } from '../lib/api';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import { staggerContainer, fadeInSlideUp, springTransition } from '../lib/motion';
 import { BASE_URL } from '../lib/api';
 
@@ -29,6 +30,7 @@ function heartbeatStatus(lastSeen: string, now: number) {
 
 export const AgentsPage: React.FC = () => {
   const { activeProject } = useProject();
+  const { isDemo } = useAuth();
   const [machines, setMachines] = useState<Machine[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInstall, setShowInstall] = useState(false);
@@ -39,7 +41,7 @@ export const AgentsPage: React.FC = () => {
     let ignore = false;
     const load = async () => {
       setLoading(true);
-      if (!activeProject) {
+      if (isDemo || !activeProject) {
         if (!ignore) {
           setMachines(MOCK_MACHINES);
           setLoading(false);
@@ -49,10 +51,10 @@ export const AgentsPage: React.FC = () => {
       try {
         const res = await projectApi.machines(activeProject.project_id);
         if (!ignore) {
-          setMachines(res.machines?.length ? res.machines : MOCK_MACHINES);
+          setMachines(res.machines || []);
         }
       } catch {
-        if (!ignore) setMachines(MOCK_MACHINES);
+        if (!ignore) setMachines([]);
       } finally {
         if (!ignore) setLoading(false);
       }
@@ -61,7 +63,7 @@ export const AgentsPage: React.FC = () => {
     return () => {
       ignore = true;
     };
-  }, [activeProject]);
+  }, [activeProject, isDemo]);
 
   const INSTALL_COMMANDS = {
     macos: `curl -sSL ${BASE_URL}/install.sh | bash -s -- \\
@@ -121,7 +123,13 @@ export const AgentsPage: React.FC = () => {
             <motion.tbody variants={staggerContainer} initial="hidden" animate="visible">
               {loading
                 ? Array.from({ length: 4 }).map((_, i) => <tr key={i}><td colSpan={6}><div className="skeleton" /></td></tr>)
-                : machines.map((m) => {
+                : machines.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px 16px', color: '#6b7280', fontSize: '0.8125rem' }}>
+                      No machines connected to this project yet. Click <strong>Connect Agent</strong> to install on a host.
+                    </td>
+                  </tr>
+                ) : machines.map((m) => {
                   const hb = heartbeatStatus(m.last_seen, now);
                   return (
                     <motion.tr key={m.id} className="table-row" variants={fadeInSlideUp}>

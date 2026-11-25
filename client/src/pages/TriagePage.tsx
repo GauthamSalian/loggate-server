@@ -4,6 +4,7 @@ import { Search, X, ChevronLeft, ChevronRight, Copy, CheckCheck, ExternalLink } 
 import { projectApi } from '../lib/api';
 import type { LogRecord, LogQueryParams } from '../lib/api';
 import { useProject } from '../context/ProjectContext';
+import { useAuth } from '../context/AuthContext';
 import { staggerContainer, fadeInSlideUp, springTransition } from '../lib/motion';
 
 const SEVERITY_CLASSES: Record<string, string> = {
@@ -129,6 +130,7 @@ const PatternDrawer: React.FC<{ record: LogRecord; onClose: () => void }> = ({ r
 
 export const TriagePage: React.FC = () => {
   const { activeProject } = useProject();
+  const { isDemo } = useAuth();
   const [logs, setLogs] = useState<LogRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -137,19 +139,19 @@ export const TriagePage: React.FC = () => {
   const [search, setSearch] = useState('');
 
   const fetchLogs = useCallback(async () => {
-    if (!activeProject) { setLogs(MOCK_LOGS); setTotal(MOCK_LOGS.length); setLoading(false); return; }
+    if (isDemo || !activeProject) { setLogs(MOCK_LOGS); setTotal(MOCK_LOGS.length); setLoading(false); return; }
     setLoading(true);
     try {
       const res = await projectApi.logs(activeProject.project_id, { ...params, search: search || undefined });
-      setLogs(res.logs?.length ? res.logs : MOCK_LOGS);
+      setLogs(res.logs || []);
       setTotal(res.total ?? res.logs?.length ?? 0);
     } catch {
-      setLogs(MOCK_LOGS);
-      setTotal(MOCK_LOGS.length);
+      setLogs([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [activeProject, params, search]);
+  }, [activeProject, isDemo, params, search]);
 
   useEffect(() => {
     let ignore = false;
@@ -222,7 +224,13 @@ export const TriagePage: React.FC = () => {
                 ? Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i}><td colSpan={6}><div className="skeleton" /></td></tr>
                 ))
-                : logs.map((log) => (
+                : logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', padding: '32px 16px', color: '#6b7280', fontSize: '0.8125rem' }}>
+                      No triaged log patterns recorded for this project yet.
+                    </td>
+                  </tr>
+                ) : logs.map((log) => (
                   <motion.tr
                     key={log.id}
                     className="table-row"

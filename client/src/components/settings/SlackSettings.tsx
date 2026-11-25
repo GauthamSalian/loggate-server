@@ -273,7 +273,7 @@ export const SlackSettings: React.FC = () => {
           <div style={{ color: 'var(--text-secondary)' }}>• Actionable Probability: 0.97 (Floor: 0.85)</div>
           <div style={{ color: 'var(--text-secondary)' }}>• Owning Team: Payments &amp; Billing Core</div>
           <div style={{ color: 'var(--text-secondary)' }}>• Pattern: HTTP 504 Gateway Timeout while dispatching webhook...</div>
-          <div style={{ color: '#60a5fa' }}>• Detail: https://loggate.corp.internal/incidents/INC-1042</div>
+          <div style={{ color: '#89F336' }}>• Detail: https://loggate.corp.internal/incidents/INC-1042</div>
         </div>
       </div>
     </div>

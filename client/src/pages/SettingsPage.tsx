@@ -292,7 +292,7 @@ export const SettingsPage: React.FC = () => {
             color: '#475569'
           }}
         >
-          <Info size={16} className="text-blue-500" style={{ flexShrink: 0 }} />
+          <Info size={16} style={{ color: '#6b7280', flexShrink: 0 }} />
           <span>
             You are currently working in the <strong>Default Workspace</strong>. Any configuration you set here is active immediately. To create a dedicated database-backed project, click <strong>New Project</strong>.
           </span>
